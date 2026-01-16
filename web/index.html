@@ -483,100 +483,171 @@
                 grid-template-columns: 1fr;
             }
         }
-    </style>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        corePlugins: {
-            preflight: false,
-        },
-        theme: {
-          extend: {
-            colors: {
-              border: "var(--border)",
-              input: "var(--bg-card)",
-              ring: "var(--accent-primary)",
-              background: "var(--bg-primary)",
-              foreground: "var(--text-primary)",
-              primary: {
-                DEFAULT: "var(--accent-primary)",
-                foreground: "#ffffff",
-              },
-              secondary: {
-                DEFAULT: "var(--bg-card)",
-                foreground: "var(--text-primary)",
-              },
-              destructive: {
-                DEFAULT: "var(--error)",
-                foreground: "#ffffff",
-              },
-              muted: {
-                DEFAULT: "var(--bg-secondary)",
-                foreground: "var(--text-muted)",
-              },
-              accent: {
-                DEFAULT: "var(--bg-hover)",
-                foreground: "var(--text-primary)",
-              },
-              card: {
-                DEFAULT: "var(--bg-card)",
-                foreground: "var(--text-primary)",
-              },
-            },
-            borderRadius: {
-              lg: "0.5rem",
-              md: "calc(0.5rem - 2px)",
-              sm: "calc(0.5rem - 4px)",
-            },
-          },
-        },
-      }
-    </script>
-    <style type="text/tailwindcss">
-      @layer components {
+
+        /* 
+           SHADCN UI REPLICA (Pure CSS Fallback)
+           Replique le style des boutons Shadcn sans dépendre de Tailwind CDN.
+           Cela garantit que le style fonctionne même si le CDN est bloqué ou échoue.
+        */
+        
         .btn {
-          @apply inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 cursor-pointer;
-        }
-        .btn-primary {
-          @apply bg-primary text-primary-foreground hover:bg-primary/90 border-0;
-        }
-        .btn-secondary {
-          @apply bg-secondary text-secondary-foreground hover:bg-accent border border-border;
-        }
-        .btn-destructive {
-          @apply bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0;
-        }
-        .btn-outline {
-          @apply border border-input bg-background hover:bg-accent hover:text-accent-foreground;
-        }
-        .btn-ghost {
-          @apply hover:bg-accent hover:text-accent-foreground border-0;
-        }
-        .btn-link {
-          @apply text-primary underline-offset-4 hover:underline border-0;
-        }
-        .btn-sm {
-          @apply h-9 rounded-md px-3;
-        }
-        .btn-lg {
-          @apply h-11 rounded-md px-8;
-        }
-        .btn-icon {
-          @apply h-10 w-10 p-0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            border-radius: 0.375rem; /* rounded-md */
+            font-size: 0.875rem; /* text-sm */
+            font-weight: 500;
+            height: 2.5rem; /* h-10 */
+            padding-left: 1rem;
+            padding-right: 1rem;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+            outline: none;
+            text-decoration: none;
+            font-family: inherit;
         }
         
-        /* Map existing classes to new shadcn styles */
+        .btn:focus-visible {
+            outline: 2px solid var(--accent-primary);
+            outline-offset: 2px;
+        }
+        
+        .btn:disabled {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        /* Variants */
+        .btn-primary {
+            background-color: var(--accent-primary);
+            color: #ffffff;
+            border: none;
+        }
+        .btn-primary:hover {
+            opacity: 0.9;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4); /* Shadow accent */
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover {
+            background-color: var(--bg-hover);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--bg-card); /* Input border color */
+        }
+        .btn-outline:hover {
+            background-color: var(--bg-hover); /* accent */
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .btn-ghost {
+            background-color: transparent;
+            color: var(--text-muted);
+            border: none;
+        }
+        .btn-ghost:hover {
+            background-color: var(--bg-hover);
+            color: var(--text-primary);
+        }
+        
+        .btn-destructive {
+            background-color: var(--error);
+            color: #ffffff;
+            border: none;
+        }
+        .btn-destructive:hover {
+            opacity: 0.9;
+        }
+
+        /* Sizes */
+        .btn-sm {
+            height: 2.25rem; /* h-9 */
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.8rem;
+        }
+        
+        .btn-lg {
+            height: 2.75rem; /* h-11 */
+            padding-left: 2rem;
+            padding-right: 2rem;
+            border-radius: 0.5rem;
+        }
+        
+        .btn-icon {
+            height: 2.5rem;
+            width: 2.5rem;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Mapping des anciennes classes */
         .nav-btn {
-            @apply btn btn-ghost text-muted-foreground hover:text-foreground;
+            /* Inherits btn-ghost styles manually to ensure fallback works */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            height: 2.5rem;
+            padding: 0.6rem 1.2rem;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent; /* Changed from border var(--border) to match ghost */
+            outline: none;
+            background-color: transparent;
+            color: var(--text-secondary); /* muted foreground */
+            font-family: inherit;
         }
+        
+        .nav-btn:hover {
+            background-color: var(--bg-hover);
+            color: var(--text-primary);
+        }
+        
         .nav-btn.active {
-            @apply bg-accent text-accent-foreground;
+            background-color: var(--bg-hover); /* accent */
+            color: var(--text-primary); /* accent foreground */
+            border-bottom: 2px solid var(--accent-primary);
+            border-radius: 0.375rem 0.375rem 0 0;
         }
+
         .close-btn {
-            @apply btn btn-ghost h-9 w-9 p-0 rounded-md;
+            /* btn-ghost + btn-icon */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.375rem;
+            height: 2.25rem;
+            width: 2.25rem;
+            background-color: transparent;
+            border: 1px solid var(--border); /* Keep border for close btn */
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
         }
-      }
+        .close-btn:hover {
+            background-color: var(--error);
+            border-color: var(--error);
+            color: white;
+        }
     </style>
+    <!-- Tailwind CDN removed (was causing production issues) -->
 </head>
 <body>
     <header>
