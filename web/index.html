@@ -545,6 +545,9 @@
                 <div id="regions-view-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                     <h2 style="font-size: 1.5rem; font-weight: 600;">Régions</h2>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button onclick="scrapeEverything()" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem;">
+                            🚀 Scraper TOUT
+                        </button>
                         <select id="region-select" class="search-input" style="padding: 0.5rem 1rem; cursor: pointer; min-width: 200px;">
                             <option value="">Toutes les régions</option>
                         </select>
@@ -912,6 +915,253 @@
             `;
             
             showToast(`✅ ${province}: ${completed} clubs, ${totalPlayers} joueurs`, 'success');
+        }
+
+        // Scrape EVERYTHING - toutes les régions, tous les clubs, tous les joueurs
+        async function scrapeEverything() {
+            if (!confirm('🚀 Scraper TOUT ?\n\nCela va récupérer TOUS les clubs et TOUS les joueurs de TOUTES les régions.\n\n⚠️ Cette opération peut prendre 30+ minutes.')) {
+                return;
+            }
+            
+            const grid = document.getElementById('clubs-grid');
+            const startTime = Date.now();
+            
+            // 1. Récupérer tous les clubs
+            grid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
+                    <div style="font-size: 2rem;">🔍</div>
+                    <p>Récupération de la liste de tous les clubs...</p>
+                </div>
+            `;
+            
+            let allClubs = [];
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/clubs`);
+                if (res.ok) {
+                    const data = await res.json();
+                    allClubs = data.clubs || [];
+                }
+            } catch (e) {
+                showToast(`❌ Erreur: ${e.message}`, 'error');
+                renderRegions();
+                return;
+            }
+            
+            if (allClubs.length === 0) {
+                showToast('Aucun club trouvé', 'error');
+                renderRegions();
+                return;
+            }
+            
+            // Organiser par province
+            const clubsByProvince = {};
+            allClubs.forEach(club => {
+                const prov = club.province || 'Non spécifié';
+                if (!clubsByProvince[prov]) clubsByProvince[prov] = [];
+                clubsByProvince[prov].push(club);
+            });
+            
+            const provinces = Object.keys(clubsByProvince).sort();
+            const totalClubs = allClubs.length;
+            
+            // 2. Stats globales
+            let globalCompleted = 0;
+            let globalPlayers = 0;
+            let globalErrors = [];
+            let currentProvinceIndex = 0;
+            
+            window.scrapingCancelled = false;
+            
+            const formatTime = (ms) => {
+                const seconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const hours = Math.floor(minutes / 60);
+                if (hours > 0) return `${hours}h ${minutes % 60}m`;
+                if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+                return `${seconds}s`;
+            };
+            
+            const updateGlobalProgress = (currentProvince, currentClub, clubStatus) => {
+                const elapsed = Date.now() - startTime;
+                const avgTimePerClub = globalCompleted > 0 ? elapsed / globalCompleted : 5000;
+                const remaining = (totalClubs - globalCompleted) * avgTimePerClub;
+                const percentGlobal = Math.round((globalCompleted / totalClubs) * 100);
+                const provinceClubs = clubsByProvince[currentProvince] || [];
+                const provinceCompleted = provinceClubs.filter(c => 
+                    allClubs.indexOf(c) < allClubs.indexOf(currentClub) || c === currentClub
+                ).length;
+                const percentProvince = provinceClubs.length > 0 ? Math.round((provinceCompleted / provinceClubs.length) * 100) : 0;
+                
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1; padding: 1.5rem;">
+                        <div style="text-align: center; margin-bottom: 2rem;">
+                            <h2 style="margin-bottom: 0.5rem;">🚀 Scraping complet en cours</h2>
+                            <p style="color: var(--text-muted);">
+                                ⏱️ ${formatTime(elapsed)} écoulé • ~${formatTime(remaining)} restant
+                            </p>
+                        </div>
+                        
+                        <!-- Progression globale -->
+                        <div style="background: var(--bg-secondary); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                <span style="font-weight: 600;">📊 Progression globale</span>
+                                <span style="font-size: 1.2rem; font-weight: bold; color: var(--accent);">${percentGlobal}%</span>
+                            </div>
+                            <div style="background: var(--bg-tertiary); border-radius: 8px; height: 20px; overflow: hidden; margin-bottom: 0.75rem;">
+                                <div style="background: linear-gradient(90deg, #10b981, #34d399); height: 100%; width: ${percentGlobal}%; transition: width 0.3s;"></div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center;">
+                                <div>
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent);">${globalCompleted}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">/ ${totalClubs} clubs</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--success);">${globalPlayers.toLocaleString()}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">joueurs</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: ${globalErrors.length > 0 ? 'var(--danger)' : 'var(--text-muted)'}">${globalErrors.length}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">erreurs</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Région en cours -->
+                        <div style="background: var(--bg-secondary); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                <span style="font-weight: 600;">📍 Région: ${currentProvince}</span>
+                                <span style="font-size: 0.9rem; color: var(--text-muted);">${currentProvinceIndex + 1} / ${provinces.length}</span>
+                            </div>
+                            <div style="background: var(--bg-tertiary); border-radius: 8px; height: 12px; overflow: hidden; margin-bottom: 0.5rem;">
+                                <div style="background: linear-gradient(90deg, var(--accent), var(--accent-light)); height: 100%; width: ${percentProvince}%; transition: width 0.3s;"></div>
+                            </div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">
+                                ${provinceCompleted} / ${provinceClubs.length} clubs dans cette région
+                            </div>
+                        </div>
+                        
+                        <!-- Club en cours -->
+                        <div style="background: var(--bg-secondary); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="font-size: 1.5rem;">
+                                    ${clubStatus === 'loading' ? '⏳' : clubStatus === 'success' ? '✅' : '❌'}
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: var(--accent-light);">${currentClub.code}</div>
+                                    <div style="font-size: 0.9rem; color: var(--text-muted);">${currentClub.name}</div>
+                                </div>
+                                <div style="text-align: right; font-size: 0.8rem; color: var(--text-muted);">
+                                    ${clubStatus === 'loading' ? 'En cours...' : clubStatus === 'success' ? 'Terminé' : 'Erreur'}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Liste des régions -->
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-bottom: 1.5rem;">
+                            ${provinces.map((p, i) => {
+                                let status = '⬜';
+                                let bg = 'var(--bg-tertiary)';
+                                if (i < currentProvinceIndex) { status = '✅'; bg = 'rgba(16, 185, 129, 0.2)'; }
+                                else if (i === currentProvinceIndex) { status = '🔄'; bg = 'rgba(99, 102, 241, 0.2)'; }
+                                return `<span style="background: ${bg}; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${status} ${p}</span>`;
+                            }).join('')}
+                        </div>
+                        
+                        <div style="text-align: center;">
+                            <button class="btn btn-secondary" onclick="window.scrapingCancelled = true" style="padding: 0.75rem 2rem;">
+                                ⏹️ Arrêter le scraping
+                            </button>
+                        </div>
+                    </div>
+                `;
+            };
+            
+            // 3. Scraper province par province, club par club
+            for (let pIdx = 0; pIdx < provinces.length; pIdx++) {
+                if (window.scrapingCancelled) break;
+                
+                const province = provinces[pIdx];
+                currentProvinceIndex = pIdx;
+                const clubs = clubsByProvince[province];
+                
+                for (const club of clubs) {
+                    if (window.scrapingCancelled) {
+                        showToast('Scraping annulé', 'info');
+                        break;
+                    }
+                    
+                    updateGlobalProgress(province, club, 'loading');
+                    
+                    try {
+                        const res = await fetch(`${API_BASE_URL}/api/clubs/${club.code}/scrape`, {
+                            method: 'POST'
+                        });
+                        
+                        if (res.ok) {
+                            const result = await res.json();
+                            globalPlayers += result.players_scraped || 0;
+                            updateGlobalProgress(province, club, 'success');
+                        } else {
+                            globalErrors.push({ club: club.code, province, error: `HTTP ${res.status}` });
+                            updateGlobalProgress(province, club, 'error');
+                        }
+                    } catch (e) {
+                        globalErrors.push({ club: club.code, province, error: e.message });
+                        updateGlobalProgress(province, club, 'error');
+                    }
+                    
+                    globalCompleted++;
+                    
+                    // Pause entre chaque club
+                    await new Promise(r => setTimeout(r, 50));
+                }
+            }
+            
+            // 4. Résumé final
+            const totalTime = Date.now() - startTime;
+            grid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">${globalErrors.length === 0 ? '🎉' : '⚠️'}</div>
+                    <h2 style="margin-bottom: 1rem;">Scraping complet terminé !</h2>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; max-width: 600px; margin: 2rem auto;">
+                        <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent);">${provinces.length}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">régions</div>
+                        </div>
+                        <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: var(--success);">${globalCompleted}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">clubs</div>
+                        </div>
+                        <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-light);">${globalPlayers.toLocaleString()}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">joueurs</div>
+                        </div>
+                        <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px;">
+                            <div style="font-size: 1.5rem; font-weight: bold;">${formatTime(totalTime)}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">durée</div>
+                        </div>
+                    </div>
+                    
+                    ${globalErrors.length > 0 ? `
+                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); border-radius: 8px; padding: 1rem; max-width: 500px; margin: 1rem auto;">
+                            <p style="color: var(--danger); margin-bottom: 0.5rem;">⚠️ ${globalErrors.length} erreur(s) rencontrée(s)</p>
+                            <details>
+                                <summary style="cursor: pointer; color: var(--text-muted); font-size: 0.85rem;">Voir le détail</summary>
+                                <ul style="text-align: left; margin-top: 0.5rem; font-size: 0.8rem; color: var(--danger); max-height: 200px; overflow-y: auto;">
+                                    ${globalErrors.map(e => `<li>${e.club} (${e.province}): ${e.error}</li>`).join('')}
+                                </ul>
+                            </details>
+                        </div>
+                    ` : ''}
+                    
+                    <button class="btn btn-primary" onclick="loadClubsForProvince(''); renderRegions(); updateStats();" style="margin-top: 1.5rem; padding: 0.75rem 2rem;">
+                        ✅ Terminé - Retour aux régions
+                    </button>
+                </div>
+            `;
+            
+            showToast(`🎉 Scraping terminé: ${globalCompleted} clubs, ${globalPlayers.toLocaleString()} joueurs`, 'success');
         }
 
         // Load clubs for a province from API
