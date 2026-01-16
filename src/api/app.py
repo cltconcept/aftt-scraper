@@ -3,7 +3,8 @@ API FastAPI pour les données AFTT
 """
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from typing import Optional, List
 import sys
 import os
@@ -22,6 +23,9 @@ import json
 
 # Initialiser la base de données
 init_database()
+
+# Chemin vers le dossier web
+WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'web')
 
 # Créer l'application FastAPI
 app = FastAPI(
@@ -46,9 +50,38 @@ app.add_middleware(
 # ROUTES: Stats & Health
 # =============================================================================
 
-@app.get("/", tags=["Health"])
+@app.get("/", tags=["Health"], include_in_schema=False)
 async def root():
-    """Page d'accueil de l'API."""
+    """Sert l'interface web principale."""
+    index_path = os.path.join(WEB_DIR, 'index.html')
+    if os.path.exists(index_path):
+        return FileResponse(index_path, media_type='text/html')
+    return {
+        "name": "AFTT Data API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "endpoints": {
+            "clubs": "/api/clubs",
+            "players": "/api/players",
+            "matches": "/api/matches",
+            "rankings": "/api/rankings",
+            "search": "/api/search"
+        }
+    }
+
+
+@app.get("/api-docs.html", include_in_schema=False)
+async def api_docs_page():
+    """Sert la page de documentation API."""
+    docs_path = os.path.join(WEB_DIR, 'api-docs.html')
+    if os.path.exists(docs_path):
+        return FileResponse(docs_path, media_type='text/html')
+    raise HTTPException(status_code=404, detail="Documentation not found")
+
+
+@app.get("/api", tags=["Health"])
+async def api_info():
+    """Information sur l'API."""
     return {
         "name": "AFTT Data API",
         "version": "1.0.0",

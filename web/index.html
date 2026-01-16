@@ -1613,7 +1613,8 @@
         });
 
         // Auto-load from API
-        const API_BASE_URL = 'http://localhost:8000';
+        // Détecter automatiquement l'URL de base (fonctionne en local et en production)
+        const API_BASE_URL = window.location.origin;
         
         // Load provinces list
         async function loadProvincesList() {
