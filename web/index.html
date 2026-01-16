@@ -774,63 +774,144 @@
             `).join('');
         }
 
-        // Scrape all clubs from a province
+        // Scrape all clubs from a province (avec progression en temps réel)
         async function scrapeProvince(province) {
             if (!confirm(`Lancer le scraping complet de tous les clubs de ${province} ?\\n\\nCela peut prendre plusieurs minutes.`)) {
                 return;
             }
             
-            showToast(`Scraping de ${province} lancé...`, 'info');
-            
-            // Afficher un indicateur de chargement
             const grid = document.getElementById('clubs-grid');
-            const originalContent = grid.innerHTML;
             
+            // 1. Récupérer la liste des clubs de cette province
             grid.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">⏳</div>
-                    <h3>Scraping de ${province} en cours...</h3>
-                    <p style="color: var(--text-muted); margin-top: 1rem;">Récupération de tous les clubs et joueurs</p>
-                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">Cela peut prendre plusieurs minutes...</p>
-                    <div style="margin-top: 2rem;">
-                        <div class="loading-bar" style="width: 200px; height: 4px; background: var(--bg-tertiary); border-radius: 2px; margin: 0 auto; overflow: hidden;">
-                            <div style="width: 30%; height: 100%; background: var(--accent); border-radius: 2px; animation: loading 1.5s infinite;"></div>
-                        </div>
-                    </div>
+                <div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
+                    <div style="font-size: 2rem;">🔍</div>
+                    <p>Récupération de la liste des clubs...</p>
                 </div>
-                <style>
-                    @keyframes loading {
-                        0% { transform: translateX(-100%); }
-                        100% { transform: translateX(400%); }
-                    }
-                </style>
             `;
             
+            let clubsToScrape = [];
             try {
-                const response = await fetch(`${API_BASE_URL}/api/clubs/province/${encodeURIComponent(province)}/scrape`, {
-                    method: 'POST'
-                });
-                
-                if (!response.ok) {
-                    const error = await response.json().catch(() => ({}));
-                    throw new Error(error.detail || `Erreur HTTP ${response.status}`);
+                const res = await fetch(`${API_BASE_URL}/api/clubs?province=${encodeURIComponent(province)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    clubsToScrape = data.clubs || [];
+                }
+            } catch (e) {
+                showToast(`❌ Erreur: ${e.message}`, 'error');
+                renderRegions();
+                return;
+            }
+            
+            if (clubsToScrape.length === 0) {
+                showToast(`Aucun club trouvé pour ${province}`, 'error');
+                renderRegions();
+                return;
+            }
+            
+            // 2. Scraper chaque club avec progression
+            let completed = 0;
+            let totalPlayers = 0;
+            let errors = [];
+            
+            const updateProgress = (currentClub, status) => {
+                const percent = Math.round((completed / clubsToScrape.length) * 100);
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
+                        <h3 style="margin-bottom: 1rem;">🔄 Scraping ${province}</h3>
+                        
+                        <div style="background: var(--bg-tertiary); border-radius: 8px; height: 24px; width: 100%; max-width: 400px; margin: 0 auto 1rem; overflow: hidden;">
+                            <div style="background: linear-gradient(90deg, var(--accent), var(--accent-light)); height: 100%; width: ${percent}%; transition: width 0.3s; display: flex; align-items: center; justify-content: center;">
+                                <span style="color: white; font-weight: bold; font-size: 0.8rem;">${percent}%</span>
+                            </div>
+                        </div>
+                        
+                        <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">
+                            <strong>${completed}</strong> / ${clubsToScrape.length} clubs
+                        </p>
+                        
+                        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                            ${totalPlayers} joueurs récupérés
+                        </p>
+                        
+                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 1rem; max-width: 400px; margin: 0 auto;">
+                            <p style="color: var(--accent-light); font-weight: 500;">
+                                ${status === 'loading' ? '⏳' : status === 'success' ? '✅' : '❌'} 
+                                ${currentClub.code} - ${currentClub.name}
+                            </p>
+                        </div>
+                        
+                        ${errors.length > 0 ? `
+                            <p style="color: var(--danger); margin-top: 1rem; font-size: 0.9rem;">
+                                ⚠️ ${errors.length} erreur(s)
+                            </p>
+                        ` : ''}
+                        
+                        <button class="btn btn-secondary" onclick="window.scrapingCancelled = true" style="margin-top: 1.5rem;">
+                            ⏹️ Arrêter
+                        </button>
+                    </div>
+                `;
+            };
+            
+            window.scrapingCancelled = false;
+            
+            for (const club of clubsToScrape) {
+                if (window.scrapingCancelled) {
+                    showToast('Scraping annulé', 'info');
+                    break;
                 }
                 
-                const result = await response.json();
+                updateProgress(club, 'loading');
                 
-                showToast(`✅ ${province}: ${result.clubs_scraped} clubs, ${result.players_scraped} joueurs`, 'success');
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/clubs/${club.code}/scrape`, {
+                        method: 'POST'
+                    });
+                    
+                    if (res.ok) {
+                        const result = await res.json();
+                        totalPlayers += result.players_scraped || 0;
+                        updateProgress(club, 'success');
+                    } else {
+                        errors.push({ club: club.code, error: `HTTP ${res.status}` });
+                        updateProgress(club, 'error');
+                    }
+                } catch (e) {
+                    errors.push({ club: club.code, error: e.message });
+                    updateProgress(club, 'error');
+                }
                 
-                // Recharger les données
-                await loadClubsForProvince('');
-                renderRegions();
+                completed++;
                 
-            } catch (e) {
-                console.error('Erreur scraping province:', e);
-                showToast(`❌ Erreur: ${e.message}`, 'error');
-                
-                // Restaurer le contenu original
-                grid.innerHTML = originalContent;
+                // Petite pause pour ne pas surcharger
+                await new Promise(r => setTimeout(r, 100));
             }
+            
+            // 3. Afficher le résumé final
+            grid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">${errors.length === 0 ? '🎉' : '⚠️'}</div>
+                    <h3>Scraping terminé !</h3>
+                    <p style="font-size: 1.2rem; margin: 1rem 0;">
+                        <strong>${completed}</strong> clubs • <strong>${totalPlayers}</strong> joueurs
+                    </p>
+                    ${errors.length > 0 ? `
+                        <p style="color: var(--danger);">${errors.length} erreur(s)</p>
+                        <details style="margin-top: 1rem; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;">
+                            <summary style="cursor: pointer; color: var(--text-muted);">Voir les erreurs</summary>
+                            <ul style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--danger);">
+                                ${errors.map(e => `<li>${e.club}: ${e.error}</li>`).join('')}
+                            </ul>
+                        </details>
+                    ` : ''}
+                    <button class="btn btn-primary" onclick="loadClubsForProvince(''); renderRegions();" style="margin-top: 1.5rem;">
+                        ← Retour aux régions
+                    </button>
+                </div>
+            `;
+            
+            showToast(`✅ ${province}: ${completed} clubs, ${totalPlayers} joueurs`, 'success');
         }
 
         // Load clubs for a province from API
