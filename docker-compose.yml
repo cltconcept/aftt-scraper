@@ -8,6 +8,7 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/app/data
+      - ./web:/app/web
     environment:
       - AFTT_DB_PATH=/app/data/aftt.db
     restart: unless-stopped
@@ -24,6 +25,7 @@ services:
     container_name: aftt-scraper
     volumes:
       - ./data:/app/data
+      - ./web:/app/web
     environment:
       - AFTT_DB_PATH=/app/data/aftt.db
     command: ["python", "main.py", "import"]

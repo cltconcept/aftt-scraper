@@ -227,22 +227,6 @@
             display: block;
         }
         
-        .copy-btn {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            padding: 0.3rem 0.8rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            float: right;
-            margin-top: -2rem;
-        }
-        
-        .copy-btn:hover {
-            background: var(--accent-light);
-        }
-        
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -288,6 +272,75 @@
             .endpoint-header { flex-wrap: wrap; }
             .endpoint-desc { width: 100%; margin-top: 0.5rem; }
         }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        corePlugins: {
+            preflight: false,
+        },
+        theme: {
+          extend: {
+            colors: {
+              border: "var(--border)",
+              input: "var(--bg-card)",
+              ring: "var(--accent)",
+              background: "var(--bg)",
+              foreground: "var(--text)",
+              primary: {
+                DEFAULT: "var(--accent)",
+                foreground: "#ffffff",
+              },
+              secondary: {
+                DEFAULT: "var(--bg-card)",
+                foreground: "var(--text)",
+              },
+              destructive: {
+                DEFAULT: "var(--red)",
+                foreground: "#ffffff",
+              },
+              muted: {
+                DEFAULT: "var(--bg-code)",
+                foreground: "var(--text-muted)",
+              },
+              accent: {
+                DEFAULT: "var(--accent-light)",
+                foreground: "#ffffff",
+              },
+              card: {
+                DEFAULT: "var(--bg-card)",
+                foreground: "var(--text)",
+              },
+            },
+            borderRadius: {
+              lg: "8px",
+              md: "6px",
+              sm: "4px",
+            },
+          },
+        },
+      }
+    </script>
+    <style type="text/tailwindcss">
+      @layer components {
+        .btn {
+          @apply inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 cursor-pointer;
+        }
+        .btn-primary {
+          @apply bg-primary text-primary-foreground hover:bg-primary/90 border-0;
+        }
+        .btn-secondary {
+          @apply bg-secondary text-secondary-foreground hover:bg-muted border border-border;
+        }
+        .btn-sm {
+          @apply h-9 rounded-md px-3 text-xs;
+        }
+        
+        /* Map copy-btn to shadcn style */
+        .copy-btn {
+            @apply btn btn-sm btn-primary absolute right-4 top-4 mt-0 float-none;
+        }
+      }
     </style>
 </head>
 <body>
