@@ -82,6 +82,23 @@ class PlayerStats:
     ratio: float = 0.0
 
 
+@dataclass
+class ScrapeTask:
+    """Représente une tâche de scraping."""
+    id: Optional[int] = None
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    status: str = "running"  # running, success, failed, cancelled
+    total_clubs: int = 0
+    completed_clubs: int = 0
+    total_players: int = 0
+    errors_count: int = 0
+    errors_detail: Optional[str] = None  # JSON des erreurs
+    trigger_type: str = "manual"  # manual, cron
+    current_club: Optional[str] = None
+    current_province: Optional[str] = None
+
+
 # SQL pour créer les tables
 CREATE_TABLES_SQL = """
 -- Table des clubs
@@ -162,6 +179,22 @@ CREATE TABLE IF NOT EXISTS player_stats (
     UNIQUE(player_licence, fiche_type, opponent_ranking)
 );
 
+-- Table des tâches de scraping
+CREATE TABLE IF NOT EXISTS scrape_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    finished_at DATETIME,
+    status TEXT DEFAULT 'running',
+    total_clubs INTEGER DEFAULT 0,
+    completed_clubs INTEGER DEFAULT 0,
+    total_players INTEGER DEFAULT 0,
+    errors_count INTEGER DEFAULT 0,
+    errors_detail TEXT,
+    trigger_type TEXT DEFAULT 'manual',
+    current_club TEXT,
+    current_province TEXT
+);
+
 -- Index pour les recherches fréquentes
 CREATE INDEX IF NOT EXISTS idx_players_club ON players(club_code);
 CREATE INDEX IF NOT EXISTS idx_players_ranking ON players(ranking);
@@ -170,4 +203,5 @@ CREATE INDEX IF NOT EXISTS idx_matches_player ON matches(player_licence);
 CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date);
 CREATE INDEX IF NOT EXISTS idx_matches_opponent ON matches(opponent_licence);
 CREATE INDEX IF NOT EXISTS idx_clubs_province ON clubs(province);
+CREATE INDEX IF NOT EXISTS idx_scrape_tasks_status ON scrape_tasks(status);
 """

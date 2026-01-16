@@ -36,9 +36,11 @@ def get_connection(db_path: str = None) -> sqlite3.Connection:
     # Créer le dossier si nécessaire
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row  # Permet d'accéder aux colonnes par nom
     conn.execute("PRAGMA foreign_keys = ON")  # Activer les clés étrangères
+    conn.execute("PRAGMA journal_mode = WAL")  # Mode WAL pour éviter les blocages
+    conn.execute("PRAGMA busy_timeout = 30000")  # Timeout 30s si DB occupée
     
     return conn
 

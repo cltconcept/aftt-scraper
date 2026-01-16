@@ -448,3 +448,112 @@ def search_players(query: str, limit: int = 50) -> List[Dict]:
     with get_db() as db:
         cursor = db.execute(sql, (f"%{query}%", f"%{query}%", limit))
         return [dict(row) for row in cursor.fetchall()]
+
+
+# =============================================================================
+# GESTION DES TÂCHES DE SCRAPING
+# =============================================================================
+
+def create_scrape_task(trigger_type: str = "manual", total_clubs: int = 0) -> int:
+    """Crée une nouvelle tâche de scraping et retourne son ID."""
+    sql = """
+        INSERT INTO scrape_tasks (trigger_type, total_clubs, status)
+        VALUES (?, ?, 'running')
+    """
+    with get_db() as db:
+        cursor = db.execute(sql, (trigger_type, total_clubs))
+        return cursor.lastrowid
+
+
+def update_scrape_task(
+    task_id: int,
+    completed_clubs: int = None,
+    total_players: int = None,
+    current_club: str = None,
+    current_province: str = None,
+    status: str = None,
+    errors_count: int = None,
+    errors_detail: str = None
+):
+    """Met à jour une tâche de scraping."""
+    updates = []
+    values = []
+    
+    if completed_clubs is not None:
+        updates.append("completed_clubs = ?")
+        values.append(completed_clubs)
+    if total_players is not None:
+        updates.append("total_players = ?")
+        values.append(total_players)
+    if current_club is not None:
+        updates.append("current_club = ?")
+        values.append(current_club)
+    if current_province is not None:
+        updates.append("current_province = ?")
+        values.append(current_province)
+    if status is not None:
+        updates.append("status = ?")
+        values.append(status)
+        if status in ('success', 'failed', 'cancelled'):
+            updates.append("finished_at = CURRENT_TIMESTAMP")
+    if errors_count is not None:
+        updates.append("errors_count = ?")
+        values.append(errors_count)
+    if errors_detail is not None:
+        updates.append("errors_detail = ?")
+        values.append(errors_detail)
+    
+    if not updates:
+        return
+    
+    sql = f"UPDATE scrape_tasks SET {', '.join(updates)} WHERE id = ?"
+    values.append(task_id)
+    
+    with get_db() as db:
+        db.execute(sql, values)
+
+
+def get_current_scrape_task() -> Optional[Dict]:
+    """Récupère la tâche de scraping en cours (si existe)."""
+    sql = """
+        SELECT * FROM scrape_tasks 
+        WHERE status = 'running'
+        ORDER BY started_at DESC
+        LIMIT 1
+    """
+    with get_db() as db:
+        cursor = db.execute(sql)
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_scrape_task_history(limit: int = 20) -> List[Dict]:
+    """Récupère l'historique des tâches de scraping."""
+    sql = """
+        SELECT * FROM scrape_tasks
+        ORDER BY started_at DESC
+        LIMIT ?
+    """
+    with get_db() as db:
+        cursor = db.execute(sql, (limit,))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_scrape_task_by_id(task_id: int) -> Optional[Dict]:
+    """Récupère une tâche par son ID."""
+    sql = "SELECT * FROM scrape_tasks WHERE id = ?"
+    with get_db() as db:
+        cursor = db.execute(sql, (task_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def cancel_running_tasks():
+    """Annule toutes les tâches en cours (au démarrage de l'app)."""
+    sql = """
+        UPDATE scrape_tasks 
+        SET status = 'cancelled', finished_at = CURRENT_TIMESTAMP 
+        WHERE status = 'running'
+    """
+    with get_db() as db:
+        db.execute(sql)

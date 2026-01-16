@@ -1,13 +1,16 @@
 """
 API FastAPI pour les données AFTT
 """
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from typing import Optional, List
 import sys
 import os
+import json as json_lib
+import asyncio
+from datetime import datetime
 
 # Ajouter le chemin parent pour les imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -701,6 +704,248 @@ async def search(
         "query": q,
         "count": len(players),
         "players": players
+    }
+
+
+# =============================================================================
+# ROUTES: Scraping automatique
+# =============================================================================
+
+# Variable globale pour suivre la tâche en cours
+_current_task_id = None
+
+async def run_full_scrape(task_id: int, trigger_type: str):
+    """Exécute le scraping complet en arrière-plan."""
+    global _current_task_id
+    _current_task_id = task_id
+    
+    print(f"[SCRAPE] Démarrage tâche #{task_id} (trigger: {trigger_type})")
+    
+    try:
+        # 1. Récupérer tous les clubs
+        all_clubs = queries.get_all_clubs()
+        total_clubs = len(all_clubs)
+        
+        queries.update_scrape_task(task_id, total_clubs=total_clubs if total_clubs else 0)
+        print(f"[SCRAPE] {total_clubs} clubs à traiter")
+        
+        # Organiser par province
+        clubs_by_province = {}
+        for club in all_clubs:
+            prov = club.get('province', 'Non spécifié') or 'Non spécifié'
+            if prov not in clubs_by_province:
+                clubs_by_province[prov] = []
+            clubs_by_province[prov].append(club)
+        
+        completed = 0
+        total_players = 0
+        errors = []
+        
+        # 2. Scraper chaque club
+        for province, clubs in clubs_by_province.items():
+            for club in clubs:
+                code = club.get('code')
+                if not code:
+                    continue
+                
+                queries.update_scrape_task(
+                    task_id,
+                    completed_clubs=completed,
+                    total_players=total_players,
+                    current_club=code,
+                    current_province=province
+                )
+                
+                try:
+                    # Scraper les membres
+                    members = get_club_members(code)
+                    
+                    if members:
+                        for member in members:
+                            player_data = {
+                                'licence': member.get('licence'),
+                                'name': member.get('name', ''),
+                                'club_code': code,
+                                'ranking': member.get('ranking'),
+                                'category': member.get('category')
+                            }
+                            if player_data['licence']:
+                                queries.insert_player(player_data)
+                    
+                    # Scraper depuis la page ranking
+                    ranking_players = await get_club_ranking_players_async(code)
+                    
+                    if ranking_players:
+                        for player in ranking_players:
+                            player_data = {
+                                'licence': player.get('licence'),
+                                'name': player.get('name', ''),
+                                'club_code': code,
+                                'ranking': player.get('ranking'),
+                                'points_current': player.get('points')
+                            }
+                            if player_data['licence']:
+                                queries.insert_player(player_data)
+                        total_players += len(ranking_players)
+                    elif members:
+                        total_players += len(members)
+                    
+                    print(f"[SCRAPE] ✅ {code} - {total_players} joueurs total")
+                    
+                except Exception as e:
+                    error_msg = f"{code}: {str(e)}"
+                    errors.append(error_msg)
+                    print(f"[SCRAPE] ❌ {code}: {e}")
+                
+                completed += 1
+                
+                # Pause pour ne pas surcharger
+                await asyncio.sleep(0.1)
+        
+        # 3. Terminer la tâche
+        queries.update_scrape_task(
+            task_id,
+            completed_clubs=completed,
+            total_players=total_players,
+            status='success',
+            errors_count=len(errors),
+            errors_detail=json_lib.dumps(errors) if errors else None,
+            current_club=None,
+            current_province=None
+        )
+        
+        print(f"[SCRAPE] ✅ Tâche #{task_id} terminée: {completed} clubs, {total_players} joueurs, {len(errors)} erreurs")
+        
+    except Exception as e:
+        print(f"[SCRAPE] ❌ Tâche #{task_id} échouée: {e}")
+        queries.update_scrape_task(
+            task_id,
+            status='failed',
+            errors_detail=json_lib.dumps([str(e)])
+        )
+    finally:
+        _current_task_id = None
+
+
+@app.post("/api/scrape/all", tags=["Scraping"])
+async def start_full_scrape(
+    background_tasks: BackgroundTasks,
+    trigger: str = Query("manual", description="Type de déclencheur (manual, cron)")
+):
+    """
+    Lance un scraping complet de tous les clubs et joueurs.
+    Le scraping s'exécute en arrière-plan et retourne immédiatement.
+    """
+    # Vérifier si une tâche est déjà en cours
+    current = queries.get_current_scrape_task()
+    if current:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "Scraping already in progress",
+                "task_id": current['id'],
+                "started_at": current['started_at'],
+                "progress": f"{current['completed_clubs']}/{current['total_clubs']} clubs"
+            }
+        )
+    
+    # Compter les clubs
+    all_clubs = queries.get_all_clubs()
+    total_clubs = len(all_clubs)
+    
+    # Créer la tâche
+    task_id = queries.create_scrape_task(trigger_type=trigger, total_clubs=total_clubs)
+    
+    # Lancer en arrière-plan
+    background_tasks.add_task(run_full_scrape, task_id, trigger)
+    
+    return {
+        "status": "started",
+        "task_id": task_id,
+        "total_clubs": total_clubs,
+        "message": f"Scraping de {total_clubs} clubs démarré en arrière-plan"
+    }
+
+
+@app.get("/api/scrape/status", tags=["Scraping"])
+async def get_scrape_status():
+    """
+    Récupère le statut de la tâche de scraping en cours.
+    """
+    current = queries.get_current_scrape_task()
+    
+    if not current:
+        return {
+            "running": False,
+            "message": "Aucun scraping en cours"
+        }
+    
+    elapsed = None
+    if current['started_at']:
+        try:
+            start = datetime.fromisoformat(current['started_at'].replace('Z', '+00:00'))
+            elapsed = (datetime.now() - start.replace(tzinfo=None)).total_seconds()
+        except:
+            pass
+    
+    return {
+        "running": True,
+        "task_id": current['id'],
+        "started_at": current['started_at'],
+        "elapsed_seconds": elapsed,
+        "total_clubs": current['total_clubs'],
+        "completed_clubs": current['completed_clubs'],
+        "total_players": current['total_players'],
+        "current_club": current['current_club'],
+        "current_province": current['current_province'],
+        "errors_count": current['errors_count'],
+        "progress_percent": round((current['completed_clubs'] / current['total_clubs'] * 100), 1) if current['total_clubs'] > 0 else 0
+    }
+
+
+@app.get("/api/scrape/history", tags=["Scraping"])
+async def get_scrape_history(
+    limit: int = Query(20, ge=1, le=100, description="Nombre de tâches à récupérer")
+):
+    """
+    Récupère l'historique des tâches de scraping.
+    """
+    tasks = queries.get_scrape_task_history(limit=limit)
+    
+    # Calculer la durée pour chaque tâche terminée
+    for task in tasks:
+        if task['started_at'] and task['finished_at']:
+            try:
+                start = datetime.fromisoformat(task['started_at'].replace('Z', '+00:00'))
+                end = datetime.fromisoformat(task['finished_at'].replace('Z', '+00:00'))
+                task['duration_seconds'] = (end - start).total_seconds()
+            except:
+                task['duration_seconds'] = None
+        else:
+            task['duration_seconds'] = None
+    
+    return {
+        "count": len(tasks),
+        "tasks": tasks
+    }
+
+
+@app.post("/api/scrape/cancel", tags=["Scraping"])
+async def cancel_scrape():
+    """
+    Annule la tâche de scraping en cours.
+    """
+    current = queries.get_current_scrape_task()
+    
+    if not current:
+        raise HTTPException(status_code=404, detail="Aucun scraping en cours")
+    
+    queries.update_scrape_task(current['id'], status='cancelled')
+    
+    return {
+        "status": "cancelled",
+        "task_id": current['id'],
+        "message": "Scraping annulé"
     }
 
 
