@@ -3,494 +3,760 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Documentation API - AFTT Data Explorer</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <title>API AFTT - Documentation</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏓</text></svg>">
     <style>
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-card: #1a1a24;
-            --bg-hover: #222230;
-            --accent-primary: #6366f1;
-            --accent-secondary: #818cf8;
-            --accent-glow: rgba(99, 102, 241, 0.3);
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --border: #2d2d3a;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
+            --bg: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-code: #1a1a24;
+            --text: #e4e4e7;
+            --text-muted: #71717a;
+            --accent: #8b5cf6;
+            --accent-light: #a78bfa;
+            --green: #22c55e;
+            --blue: #3b82f6;
+            --orange: #f97316;
+            --red: #ef4444;
+            --border: #27272a;
         }
-
+        
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
-            font-family: 'Space Grotesk', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
             line-height: 1.6;
         }
-
+        
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 2rem;
         }
-
+        
         header {
-            background: var(--bg-secondary);
+            text-align: center;
+            padding: 3rem 0;
             border-bottom: 1px solid var(--border);
-            padding: 1rem 2rem;
-            margin-bottom: 2rem;
+            margin-bottom: 3rem;
         }
-
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
+        
         h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .back-link {
-            color: var(--text-secondary);
-            text-decoration: none;
-            padding: 0.5rem 1rem;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            transition: all 0.2s ease;
-        }
-
-        .back-link:hover {
-            background: var(--bg-hover);
-            color: var(--text-primary);
-            border-color: var(--accent-primary);
-        }
-
-        h2 {
-            color: var(--accent-secondary);
-            margin-top: 2rem;
             margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--border);
         }
-
-        h3 {
-            color: var(--text-primary);
-            margin-top: 1.5rem;
-            margin-bottom: 0.75rem;
+        
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
         }
-
-        .endpoint-card {
+        
+        .base-url {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin: 1.5rem auto;
+            display: inline-block;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.95rem;
         }
-
-        .endpoint-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
+        
+        .base-url a {
+            color: var(--accent-light);
+            text-decoration: none;
         }
-
-        .method {
-            padding: 0.25rem 0.75rem;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 0.85rem;
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        .method.get {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--success);
-            border: 1px solid var(--success);
-        }
-
-        .endpoint-path {
-            font-family: 'JetBrains Mono', monospace;
-            color: var(--text-primary);
-            font-size: 1rem;
-        }
-
-        .description {
-            color: var(--text-secondary);
-            margin-bottom: 1rem;
-        }
-
-        .params {
+        
+        .links {
             margin-top: 1rem;
         }
-
-        .param-item {
+        
+        .links a {
+            color: var(--accent);
+            text-decoration: none;
+            margin: 0 1rem;
+        }
+        
+        .links a:hover {
+            text-decoration: underline;
+        }
+        
+        h2 {
+            font-size: 1.8rem;
+            margin: 3rem 0 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--accent);
             display: flex;
-            gap: 1rem;
-            padding: 0.5rem 0;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        h3 {
+            font-size: 1.3rem;
+            margin: 2rem 0 1rem;
+            color: var(--accent-light);
+        }
+        
+        .section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
             border-bottom: 1px solid var(--border);
         }
-
-        .param-name {
-            font-family: 'JetBrains Mono', monospace;
-            color: var(--accent-secondary);
-            min-width: 150px;
+        
+        th {
+            background: var(--bg-code);
+            color: var(--accent-light);
+            font-weight: 600;
         }
-
-        .param-desc {
-            color: var(--text-secondary);
-            flex: 1;
+        
+        tr:hover {
+            background: var(--bg-code);
         }
-
+        
         code {
-            background: var(--bg-primary);
-            border: 1px solid var(--border);
+            background: var(--bg-code);
+            padding: 0.2rem 0.5rem;
             border-radius: 4px;
-            padding: 0.2rem 0.4rem;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9em;
-            color: var(--accent-secondary);
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9rem;
+            color: var(--accent-light);
         }
-
+        
         pre {
-            background: var(--bg-primary);
+            background: var(--bg-code);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 1rem;
             overflow-x: auto;
             margin: 1rem 0;
         }
-
+        
         pre code {
-            border: none;
+            background: none;
             padding: 0;
-            background: transparent;
+            color: var(--text);
         }
-
-        .info-box {
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid var(--accent-primary);
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem 0;
-        }
-
-        .info-box strong {
-            color: var(--accent-secondary);
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
-        }
-
-        table th,
-        table td {
-            padding: 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-
-        table th {
-            background: var(--bg-card);
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        table tr:hover td {
-            background: var(--bg-hover);
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
+        
+        .endpoint {
             background: var(--bg-card);
             border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+        
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-code);
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+        
+        .endpoint-header:hover {
+            background: #1f1f2a;
+        }
+        
+        .method {
+            padding: 0.3rem 0.8rem;
             border-radius: 4px;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
+            font-weight: 700;
+            font-size: 0.85rem;
+            min-width: 60px;
+            text-align: center;
+        }
+        
+        .method.get { background: var(--green); color: #000; }
+        .method.post { background: var(--blue); color: #fff; }
+        .method.put { background: var(--orange); color: #000; }
+        .method.delete { background: var(--red); color: #fff; }
+        
+        .endpoint-path {
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 1rem;
+            flex: 1;
+        }
+        
+        .endpoint-desc {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        
+        .endpoint-body {
+            padding: 1.5rem;
+            display: none;
+        }
+        
+        .endpoint.open .endpoint-body {
+            display: block;
+        }
+        
+        .endpoint.open .endpoint-header {
+            border-bottom: 1px solid var(--accent);
+        }
+        
+        .example-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        
+        .copy-btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 0.3rem 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            float: right;
+            margin-top: -2rem;
+        }
+        
+        .copy-btn:hover {
+            background: var(--accent-light);
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        
+        .card h4 {
+            color: var(--accent-light);
+            margin-bottom: 0.5rem;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin: 0.2rem;
+        }
+        
+        .badge.green { background: rgba(34, 197, 94, 0.2); color: var(--green); }
+        .badge.blue { background: rgba(59, 130, 246, 0.2); color: var(--blue); }
+        .badge.orange { background: rgba(249, 115, 22, 0.2); color: var(--orange); }
+        .badge.purple { background: rgba(139, 92, 246, 0.2); color: var(--accent); }
+        
+        footer {
+            text-align: center;
+            padding: 3rem 0;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            h1 { font-size: 1.8rem; }
+            .endpoint-header { flex-wrap: wrap; }
+            .endpoint-desc { width: 100%; margin-top: 0.5rem; }
         }
     </style>
 </head>
 <body>
-    <header>
-        <div class="header-content">
-            <h1>📚 Documentation API AFTT</h1>
-            <a href="index.html" class="back-link">← Retour</a>
-        </div>
-    </header>
-
     <div class="container">
-        <div class="info-box">
-            <strong>Base URL :</strong> <code>http://localhost:8000</code><br>
-            <strong>Documentation Swagger interactive :</strong> <a href="http://localhost:8000/docs" target="_blank" style="color: var(--accent-secondary);">http://localhost:8000/docs</a><br>
-            <strong>Note :</strong> L'API doit être démarrée avec <code>python main.py api</code> pour être accessible.
-        </div>
-
-        <h2>Santé & Stats</h2>
-
-        <div class="endpoint-card">
-            <div class="endpoint-header">
-                <span class="method get">GET</span>
-                <span class="endpoint-path">/</span>
+        <header>
+            <h1>🏓 API AFTT</h1>
+            <p class="subtitle">API REST pour les données du tennis de table belge</p>
+            <div class="base-url">
+                <a href="/" target="_blank">📡 URL de base</a> : 
+                <span id="baseUrl"></span>
             </div>
-            <div class="description">Page d'accueil avec liste des endpoints</div>
+            <div class="links">
+                <a href="/docs" target="_blank">📖 Swagger UI</a>
+                <a href="/redoc" target="_blank">📚 ReDoc</a>
+                <a href="/" target="_blank">🏠 Interface Web</a>
+            </div>
+        </header>
+
+        <!-- LEXIQUE -->
+        <h2>📖 Lexique des Codes</h2>
+        
+        <div class="grid">
+            <div class="card">
+                <h4>🗺️ Codes Provinces</h4>
+                <table>
+                    <tr><td><code>H</code></td><td>Hainaut</td></tr>
+                    <tr><td><code>Li</code></td><td>Liège</td></tr>
+                    <tr><td><code>N</code></td><td>Namur</td></tr>
+                    <tr><td><code>Lu</code></td><td>Luxembourg</td></tr>
+                    <tr><td><code>W</code></td><td>Brabant Wallon</td></tr>
+                    <tr><td><code>A</code></td><td>Antwerpen</td></tr>
+                    <tr><td><code>E</code></td><td>Oost-Vlaanderen</td></tr>
+                    <tr><td><code>O</code></td><td>West-Vlaanderen</td></tr>
+                    <tr><td><code>L</code></td><td>Limburg</td></tr>
+                    <tr><td><code>V</code></td><td>Vlaams-Brabant</td></tr>
+                    <tr><td><code>K</code></td><td>Brussels</td></tr>
+                </table>
+            </div>
+            
+            <div class="card">
+                <h4>🏓 Classements</h4>
+                <p style="margin-bottom: 0.5rem; color: var(--text-muted);">Du plus bas au plus haut :</p>
+                <div>
+                    <span class="badge green">NC</span>
+                    <span class="badge green">E6</span>
+                    <span class="badge green">E4</span>
+                    <span class="badge green">E2</span>
+                    <span class="badge green">E0</span>
+                    <span class="badge blue">D6</span>
+                    <span class="badge blue">D4</span>
+                    <span class="badge blue">D2</span>
+                    <span class="badge blue">D0</span>
+                    <span class="badge orange">C6</span>
+                    <span class="badge orange">C4</span>
+                    <span class="badge orange">C2</span>
+                    <span class="badge orange">C0</span>
+                    <span class="badge purple">B6</span>
+                    <span class="badge purple">B4</span>
+                    <span class="badge purple">B2</span>
+                    <span class="badge purple">B0</span>
+                    <span class="badge purple">A</span>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h4>👤 Catégories d'âge</h4>
+                <table>
+                    <tr><td><code>PRE</code></td><td>Pré-minimes (-9 ans)</td></tr>
+                    <tr><td><code>MIN</code></td><td>Minimes (9-10 ans)</td></tr>
+                    <tr><td><code>CAD</code></td><td>Cadets (11-12 ans)</td></tr>
+                    <tr><td><code>JUN</code></td><td>Juniors (13-14 ans)</td></tr>
+                    <tr><td><code>SEN</code></td><td>Seniors (21-39 ans)</td></tr>
+                    <tr><td><code>V40</code></td><td>Vétérans 40+</td></tr>
+                    <tr><td><code>V50</code></td><td>Vétérans 50+</td></tr>
+                    <tr><td><code>V60</code></td><td>Vétérans 60+</td></tr>
+                </table>
+            </div>
+            
+            <div class="card">
+                <h4>✅ Résultats</h4>
+                <table>
+                    <tr><td><code>V</code></td><td>Victoire</td></tr>
+                    <tr><td><code>D</code></td><td>Défaite</td></tr>
+                    <tr><td><code>WO</code></td><td>Walk-over (forfait)</td></tr>
+                </table>
+            </div>
         </div>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <!-- ENDPOINTS -->
+        <h2>🚀 Endpoints</h2>
+
+        <h3>🏥 Health & Stats</h3>
+        
+        <div class="endpoint open">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/health</span>
+                <span class="endpoint-desc">Vérifier l'état de l'API</span>
             </div>
-            <div class="description">Vérification de l'état de l'API</div>
+            <div class="endpoint-body">
+                <span class="example-label">Exemple de requête :</span>
+                <pre><code>GET /health</code></pre>
+                <span class="example-label">Réponse :</span>
+                <pre><code>{ "status": "ok" }</code></pre>
+            </div>
         </div>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/api/stats</span>
+                <span class="endpoint-desc">Statistiques de la base de données</span>
             </div>
-            <div class="description">Statistiques de la base de données</div>
+            <div class="endpoint-body">
+                <span class="example-label">Exemple de requête :</span>
+                <pre><code>GET /api/stats</code></pre>
+                <span class="example-label">Réponse :</span>
+                <pre><code>{
+  "clubs": 823,
+  "players": 45210,
+  "matches": 156420,
+  "players_with_matches": 12500
+}</code></pre>
+            </div>
         </div>
 
-        <h2>Clubs</h2>
+        <h3>🏢 Clubs</h3>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/api/clubs</span>
+                <span class="endpoint-desc">Liste des clubs</span>
             </div>
-            <div class="description">Liste tous les clubs</div>
-            <div class="params">
-                <div class="param-item">
-                    <span class="param-name">province</span>
-                    <span class="param-desc">Filtrer par province (optionnel)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">limit</span>
-                    <span class="param-desc">Nombre max de résultats (1-1000, optionnel)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">offset</span>
-                    <span class="param-desc">Offset pour pagination (défaut: 0)</span>
-                </div>
+            <div class="endpoint-body">
+                <span class="example-label">Paramètres :</span>
+                <table>
+                    <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+                    <tr><td><code>province</code></td><td>string</td><td>Filtrer par province (ex: Hainaut)</td></tr>
+                    <tr><td><code>limit</code></td><td>int</td><td>Nombre max de résultats</td></tr>
+                    <tr><td><code>offset</code></td><td>int</td><td>Pagination</td></tr>
+                </table>
+                <span class="example-label">Exemples :</span>
+                <pre><code>GET /api/clubs
+GET /api/clubs?province=Hainaut
+GET /api/clubs?limit=50&offset=0</code></pre>
+                <span class="example-label">Réponse :</span>
+                <pre><code>{
+  "count": 156,
+  "clubs": [
+    { "code": "H004", "name": "ETT MANAGE", "province": "Hainaut" },
+    { "code": "H005", "name": "CTT GODARVILLE", "province": "Hainaut" }
+  ]
+}</code></pre>
             </div>
         </div>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/api/clubs/provinces</span>
+                <span class="endpoint-desc">Liste des provinces</span>
             </div>
-            <div class="description">Liste toutes les provinces disponibles</div>
+            <div class="endpoint-body">
+                <pre><code>GET /api/clubs/provinces</code></pre>
+                <span class="example-label">Réponse :</span>
+                <pre><code>{
+  "provinces": ["Antwerpen", "Brabant Wallon", "Hainaut", "Liège", "Limburg", ...]
+}</code></pre>
+            </div>
         </div>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/api/clubs/{code}</span>
+                <span class="endpoint-desc">Détail d'un club</span>
             </div>
-            <div class="description">Détails d'un club par son code</div>
+            <div class="endpoint-body">
+                <pre><code>GET /api/clubs/H004</code></pre>
+                <span class="example-label">Réponse :</span>
+                <pre><code>{
+  "code": "H004",
+  "name": "ETT MANAGE",
+  "province": "Hainaut",
+  "address": "Rue de la Salle 12",
+  "city": "Manage"
+}</code></pre>
+            </div>
         </div>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/api/clubs/{code}/players</span>
+                <span class="endpoint-desc">Joueurs d'un club</span>
             </div>
-            <div class="description">Joueurs d'un club</div>
+            <div class="endpoint-body">
+                <pre><code>GET /api/clubs/H004/players</code></pre>
+                <span class="example-label">Réponse :</span>
+                <pre><code>{
+  "club": { "code": "H004", "name": "ETT MANAGE" },
+  "count": 52,
+  "players": [
+    {
+      "licence": "176506",
+      "name": "DEBESSEL CHRISTOPHER",
+      "ranking": "C2",
+      "points_current": 1285,
+      "category": "SEN"
+    }
+  ]
+}</code></pre>
+            </div>
         </div>
 
-        <h2>Joueurs</h2>
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                <span class="method post">POST</span>
+                <span class="endpoint-path">/api/clubs/{code}/scrape</span>
+                <span class="endpoint-desc">Scraper un club (rafraîchir les données)</span>
+            </div>
+            <div class="endpoint-body">
+                <pre><code>POST /api/clubs/H004/scrape</code></pre>
+                <span class="example-label">Réponse :</span>
+                <pre><code>{
+  "success": true,
+  "club_code": "H004",
+  "total_players": 52,
+  "players_scraped": 52,
+  "message": "Scraping terminé: 52 joueurs, 52 fiches"
+}</code></pre>
+                <p style="color: var(--orange); margin-top: 1rem;">⚠️ Cette requête peut prendre 30-60 secondes</p>
+            </div>
+        </div>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <h3>👤 Joueurs</h3>
+
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/api/players</span>
+                <span class="endpoint-desc">Liste des joueurs avec filtres</span>
             </div>
-            <div class="description">Liste des joueurs avec filtres</div>
-            <div class="params">
-                <div class="param-item">
-                    <span class="param-name">club_code</span>
-                    <span class="param-desc">Filtrer par club (optionnel)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">ranking</span>
-                    <span class="param-desc">Filtrer par classement (optionnel)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">min_points</span>
-                    <span class="param-desc">Points minimum (optionnel)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">max_points</span>
-                    <span class="param-desc">Points maximum (optionnel)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">search</span>
-                    <span class="param-desc">Recherche par nom/licence (optionnel)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">order_by</span>
-                    <span class="param-desc">Tri (défaut: "points_current DESC")</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">limit</span>
-                    <span class="param-desc">Nombre max de résultats (défaut: 100, max: 1000)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">offset</span>
-                    <span class="param-desc">Offset pour pagination (défaut: 0)</span>
-                </div>
+            <div class="endpoint-body">
+                <span class="example-label">Paramètres :</span>
+                <table>
+                    <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+                    <tr><td><code>club_code</code></td><td>string</td><td>Filtrer par club (ex: H004)</td></tr>
+                    <tr><td><code>ranking</code></td><td>string</td><td>Filtrer par classement (ex: B2)</td></tr>
+                    <tr><td><code>min_points</code></td><td>float</td><td>Points minimum</td></tr>
+                    <tr><td><code>max_points</code></td><td>float</td><td>Points maximum</td></tr>
+                    <tr><td><code>search</code></td><td>string</td><td>Recherche par nom/licence</td></tr>
+                    <tr><td><code>limit</code></td><td>int</td><td>Max résultats (1-1000)</td></tr>
+                </table>
+                <span class="example-label">Exemples :</span>
+                <pre><code>GET /api/players?club_code=H004
+GET /api/players?ranking=B2
+GET /api/players?min_points=1000&max_points=1500
+GET /api/players?search=DEBESSEL</code></pre>
             </div>
         </div>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/api/players/{licence}</span>
+                <span class="endpoint-desc">Fiche complète d'un joueur</span>
             </div>
-            <div class="description">Fiche complète d'un joueur</div>
+            <div class="endpoint-body">
+                <pre><code>GET /api/players/176506</code></pre>
+                <span class="example-label">Réponse :</span>
+                <pre><code>{
+  "licence": "176506",
+  "name": "DEBESSEL CHRISTOPHER",
+  "club_code": "H004",
+  "ranking": "C2",
+  "points_start": 1200,
+  "points_current": 1285,
+  "total_wins": 25,
+  "total_losses": 12,
+  "stats_masculine": [
+    { "opponent_ranking": "C4", "wins": 8, "losses": 2 }
+  ],
+  "matches_masculine": [
+    {
+      "date": "2024-12-10",
+      "opponent_name": "MARTIN PIERRE",
+      "opponent_ranking": "C4",
+      "result": "V",
+      "score": "3-1"
+    }
+  ]
+}</code></pre>
+            </div>
         </div>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/api/players/{licence}/matches</span>
+                <span class="endpoint-desc">Matchs d'un joueur</span>
             </div>
-            <div class="description">Matchs d'un joueur</div>
-            <div class="params">
-                <div class="param-item">
-                    <span class="param-name">fiche_type</span>
-                    <span class="param-desc">"masculine" ou "feminine" (optionnel)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">opponent</span>
-                    <span class="param-desc">Licence de l'adversaire (optionnel)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">limit</span>
-                    <span class="param-desc">Nombre max (max: 500, optionnel)</span>
-                </div>
+            <div class="endpoint-body">
+                <span class="example-label">Paramètres :</span>
+                <table>
+                    <tr><th>Param</th><th>Description</th></tr>
+                    <tr><td><code>fiche_type</code></td><td>"masculine" ou "feminine"</td></tr>
+                    <tr><td><code>opponent</code></td><td>Licence de l'adversaire</td></tr>
+                </table>
+                <pre><code>GET /api/players/176506/matches
+GET /api/players/176506/matches?fiche_type=masculine
+GET /api/players/176506/matches?opponent=152478</code></pre>
             </div>
         </div>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/api/players/{licence1}/vs/{licence2}</span>
+                <span class="endpoint-desc">Confrontation entre deux joueurs</span>
             </div>
-            <div class="description">Head-to-head entre 2 joueurs</div>
+            <div class="endpoint-body">
+                <pre><code>GET /api/players/176506/vs/152478</code></pre>
+                <span class="example-label">Réponse :</span>
+                <pre><code>{
+  "player1": { "licence": "176506", "name": "DEBESSEL CHRISTOPHER" },
+  "player2": { "licence": "152478", "name": "MARTIN PIERRE" },
+  "player1_wins": 5,
+  "player2_wins": 2,
+  "matches": [...]
+}</code></pre>
+            </div>
         </div>
 
-        <h2>Classements</h2>
+        <h3>🏆 Rankings</h3>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/api/rankings/top</span>
+                <span class="endpoint-desc">Classement des meilleurs joueurs</span>
             </div>
-            <div class="description">Top joueurs</div>
-            <div class="params">
-                <div class="param-item">
-                    <span class="param-name">limit</span>
-                    <span class="param-desc">Nombre de joueurs (défaut: 100, max: 500)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">province</span>
-                    <span class="param-desc">Filtrer par province (optionnel)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">club_code</span>
-                    <span class="param-desc">Filtrer par club (optionnel)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">ranking</span>
-                    <span class="param-desc">Filtrer par classement (optionnel)</span>
-                </div>
+            <div class="endpoint-body">
+                <span class="example-label">Paramètres :</span>
+                <table>
+                    <tr><th>Param</th><th>Description</th></tr>
+                    <tr><td><code>limit</code></td><td>Nombre de joueurs (1-500)</td></tr>
+                    <tr><td><code>province</code></td><td>Filtrer par province</td></tr>
+                    <tr><td><code>club_code</code></td><td>Filtrer par club</td></tr>
+                    <tr><td><code>ranking</code></td><td>Filtrer par classement</td></tr>
+                </table>
+                <pre><code>GET /api/rankings/top?limit=100
+GET /api/rankings/top?province=Hainaut&limit=50
+GET /api/rankings/top?club_code=H004</code></pre>
             </div>
         </div>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/api/rankings/progressions</span>
+                <span class="endpoint-desc">Meilleures progressions de la saison</span>
             </div>
-            <div class="description">Meilleures progressions de la saison</div>
-            <div class="params">
-                <div class="param-item">
-                    <span class="param-name">limit</span>
-                    <span class="param-desc">Nombre de joueurs (défaut: 100, max: 500)</span>
-                </div>
+            <div class="endpoint-body">
+                <pre><code>GET /api/rankings/progressions?limit=50</code></pre>
             </div>
         </div>
 
-        <h2>Recherche</h2>
+        <h3>🔍 Recherche</h3>
 
-        <div class="endpoint-card">
-            <div class="endpoint-header">
+        <div class="endpoint">
+            <div class="endpoint-header" onclick="toggleEndpoint(this)">
                 <span class="method get">GET</span>
                 <span class="endpoint-path">/api/search</span>
+                <span class="endpoint-desc">Recherche de joueurs</span>
             </div>
-            <div class="description">Recherche de joueurs par nom ou licence</div>
-            <div class="params">
-                <div class="param-item">
-                    <span class="param-name">q</span>
-                    <span class="param-desc">Terme de recherche (minimum 2 caractères, requis)</span>
-                </div>
-                <div class="param-item">
-                    <span class="param-name">limit</span>
-                    <span class="param-desc">Nombre max de résultats (défaut: 50, max: 200)</span>
-                </div>
+            <div class="endpoint-body">
+                <span class="example-label">Paramètres :</span>
+                <table>
+                    <tr><th>Param</th><th>Description</th></tr>
+                    <tr><td><code>q</code></td><td>Terme de recherche (min 2 caractères)</td></tr>
+                    <tr><td><code>limit</code></td><td>Max résultats (1-200)</td></tr>
+                </table>
+                <pre><code>GET /api/search?q=DEBESSEL
+GET /api/search?q=176506
+GET /api/search?q=DEB&limit=20</code></pre>
+                <span class="example-label">Réponse :</span>
+                <pre><code>{
+  "query": "DEBESSEL",
+  "count": 2,
+  "players": [
+    { "licence": "176506", "name": "DEBESSEL CHRISTOPHER", "ranking": "C2" }
+  ]
+}</code></pre>
             </div>
         </div>
 
-        <h2>Exemples d'utilisation</h2>
+        <!-- CODE EXAMPLES -->
+        <h2>💻 Exemples de Code</h2>
 
-        <h3>Liste des clubs du Hainaut</h3>
-        <pre><code>curl "http://localhost:8000/api/clubs?province=Hainaut"</code></pre>
+        <div class="section">
+            <h4>JavaScript (Fetch)</h4>
+            <pre><code>const API = window.location.origin;
 
-        <h3>Fiche complète d'un joueur</h3>
-        <pre><code>curl "http://localhost:8000/api/players/152174"</code></pre>
+// Stats
+const stats = await fetch(`${API}/api/stats`).then(r => r.json());
 
-        <h3>Confrontations entre 2 joueurs</h3>
-        <pre><code>curl "http://localhost:8000/api/players/152174/vs/101452"</code></pre>
+// Clubs du Hainaut
+const clubs = await fetch(`${API}/api/clubs?province=Hainaut`).then(r => r.json());
 
-        <h3>Top 10 des joueurs du Hainaut</h3>
-        <pre><code>curl "http://localhost:8000/api/rankings/top?limit=10&province=Hainaut"</code></pre>
+// Joueurs d'un club
+const players = await fetch(`${API}/api/clubs/H004/players`).then(r => r.json());
 
-        <h3>Recherche</h3>
-        <pre><code>curl "http://localhost:8000/api/search?q=BRULEZ"</code></pre>
+// Recherche
+const results = await fetch(`${API}/api/search?q=DEBESSEL`).then(r => r.json());
 
-        <h2>Lancement de l'API</h2>
-
-        <div class="info-box">
-            <strong>Pour démarrer l'API :</strong><br>
-            <pre style="margin-top: 0.5rem;"><code>python main.py api</code></pre>
-            <p style="margin-top: 1rem; margin-bottom: 0;">L'API sera accessible sur <code>http://localhost:8000</code></p>
-            <p style="margin-top: 0.5rem;">La documentation Swagger interactive sera disponible sur <code>http://localhost:8000/docs</code></p>
+// Fiche joueur
+const player = await fetch(`${API}/api/players/176506`).then(r => r.json());</code></pre>
         </div>
+
+        <div class="section">
+            <h4>Python</h4>
+            <pre><code>import requests
+
+API = 'https://lkkkwcg88c04c4g8kgw884ko.chris-ia.com'
+
+# Stats
+stats = requests.get(f'{API}/api/stats').json()
+
+# Clubs du Hainaut
+clubs = requests.get(f'{API}/api/clubs', params={'province': 'Hainaut'}).json()
+
+# Joueurs d'un club
+players = requests.get(f'{API}/api/clubs/H004/players').json()
+
+# Recherche
+results = requests.get(f'{API}/api/search', params={'q': 'DEBESSEL'}).json()</code></pre>
+        </div>
+
+        <div class="section">
+            <h4>cURL</h4>
+            <pre><code># Stats
+curl https://lkkkwcg88c04c4g8kgw884ko.chris-ia.com/api/stats
+
+# Clubs du Hainaut
+curl "https://lkkkwcg88c04c4g8kgw884ko.chris-ia.com/api/clubs?province=Hainaut"
+
+# Scraper un club (POST)
+curl -X POST https://lkkkwcg88c04c4g8kgw884ko.chris-ia.com/api/clubs/H004/scrape</code></pre>
+        </div>
+
+        <footer>
+            <p>🏓 API AFTT - Données du tennis de table belge</p>
+            <p style="margin-top: 0.5rem;">
+                <a href="https://github.com/cltconcept/aftt-scraper" target="_blank" style="color: var(--accent);">GitHub</a>
+            </p>
+        </footer>
     </div>
+
+    <script>
+        // Set base URL
+        document.getElementById('baseUrl').textContent = window.location.origin;
+        
+        // Toggle endpoint details
+        function toggleEndpoint(header) {
+            const endpoint = header.parentElement;
+            endpoint.classList.toggle('open');
+        }
+    </script>
 </body>
 </html>
