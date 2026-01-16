@@ -758,10 +758,11 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                 
                 try:
                     # Scraper les membres
-                    members = get_club_members(code)
+                    members_data = get_club_members(code)
+                    members_list = members_data.get('members', []) if isinstance(members_data, dict) else []
                     
-                    if members:
-                        for member in members:
+                    if members_list:
+                        for member in members_list:
                             player_data = {
                                 'licence': member.get('licence'),
                                 'name': member.get('name', ''),
@@ -787,8 +788,8 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                             if player_data['licence']:
                                 queries.insert_player(player_data)
                         total_players += len(ranking_players)
-                    elif members:
-                        total_players += len(members)
+                    elif members_list:
+                        total_players += len(members_list)
                     
                     print(f"[SCRAPE] ✅ {code} - {total_players} joueurs total")
                     
