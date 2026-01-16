@@ -561,3 +561,47 @@ def cancel_running_tasks():
     """
     with get_db() as db:
         db.execute(sql)
+
+
+# =============================================================================
+# STATISTIQUES
+# =============================================================================
+
+def get_last_scrape_date() -> Optional[str]:
+    """Récupère la date du dernier scrap réussi."""
+    sql = """
+        SELECT finished_at, started_at
+        FROM scrape_tasks
+        WHERE status = 'success' AND (finished_at IS NOT NULL OR started_at IS NOT NULL)
+        ORDER BY COALESCE(finished_at, started_at) DESC
+        LIMIT 1
+    """
+    with get_db() as db:
+        cursor = db.execute(sql)
+        row = cursor.fetchone()
+        if row:
+            # Préférer finished_at, sinon started_at
+            return row['finished_at'] or row['started_at']
+        return None
+
+
+def get_clubs_count() -> int:
+    """Récupère le nombre total de clubs."""
+    sql = "SELECT COUNT(*) as count FROM clubs"
+    with get_db() as db:
+        cursor = db.execute(sql)
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
+
+def get_active_players_count() -> int:
+    """Récupère le nombre total de joueurs actifs (avec points ou classement)."""
+    sql = """
+        SELECT COUNT(*) as count 
+        FROM players 
+        WHERE points_current IS NOT NULL OR ranking IS NOT NULL
+    """
+    with get_db() as db:
+        cursor = db.execute(sql)
+        row = cursor.fetchone()
+        return row['count'] if row else 0

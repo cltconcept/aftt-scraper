@@ -139,6 +139,38 @@ async def get_database_stats():
     return get_stats()
 
 
+@app.get("/api/stats/last-scrape-date", tags=["Stats"])
+async def get_last_scrape_date():
+    """Retourne la date du dernier scrap réussi."""
+    last_date = queries.get_last_scrape_date()
+    if not last_date:
+        return {
+            "last_scrape_date": None,
+            "message": "Aucun scrap réussi trouvé"
+        }
+    return {
+        "last_scrape_date": last_date
+    }
+
+
+@app.get("/api/stats/clubs-count", tags=["Stats"])
+async def get_clubs_count():
+    """Retourne le nombre total de clubs."""
+    count = queries.get_clubs_count()
+    return {
+        "clubs_count": count
+    }
+
+
+@app.get("/api/stats/active-players-count", tags=["Stats"])
+async def get_active_players_count():
+    """Retourne le nombre total de joueurs actifs (avec points ou classement)."""
+    count = queries.get_active_players_count()
+    return {
+        "active_players_count": count
+    }
+
+
 # =============================================================================
 # ROUTES: Clubs
 # =============================================================================
