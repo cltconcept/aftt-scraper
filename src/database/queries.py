@@ -1,0 +1,450 @@
+"""
+Requêtes et opérations sur la base de données AFTT
+"""
+import sqlite3
+from typing import List, Optional, Dict, Any
+from .connection import get_db
+from .models import Club, Player, Match, PlayerStats
+
+
+# =============================================================================
+# CLUBS
+# =============================================================================
+
+def insert_club(club: Dict[str, Any], db: sqlite3.Connection = None) -> None:
+    """Insère ou met à jour un club."""
+    sql = """
+    INSERT INTO clubs (code, name, province, full_name, email, phone, status, 
+                       website, has_shower, venue_name, venue_address, venue_phone,
+                       venue_pmr, venue_remarks, teams_men, teams_women, teams_youth,
+                       teams_veterans, label, palette)
+    VALUES (:code, :name, :province, :full_name, :email, :phone, :status,
+            :website, :has_shower, :venue_name, :venue_address, :venue_phone,
+            :venue_pmr, :venue_remarks, :teams_men, :teams_women, :teams_youth,
+            :teams_veterans, :label, :palette)
+    ON CONFLICT(code) DO UPDATE SET
+        name = COALESCE(excluded.name, clubs.name),
+        province = COALESCE(excluded.province, clubs.province),
+        full_name = COALESCE(excluded.full_name, clubs.full_name),
+        email = COALESCE(excluded.email, clubs.email),
+        phone = COALESCE(excluded.phone, clubs.phone),
+        status = COALESCE(excluded.status, clubs.status),
+        website = COALESCE(excluded.website, clubs.website),
+        has_shower = COALESCE(excluded.has_shower, clubs.has_shower),
+        venue_name = COALESCE(excluded.venue_name, clubs.venue_name),
+        venue_address = COALESCE(excluded.venue_address, clubs.venue_address),
+        venue_phone = COALESCE(excluded.venue_phone, clubs.venue_phone),
+        venue_pmr = COALESCE(excluded.venue_pmr, clubs.venue_pmr),
+        venue_remarks = COALESCE(excluded.venue_remarks, clubs.venue_remarks),
+        teams_men = COALESCE(excluded.teams_men, clubs.teams_men),
+        teams_women = COALESCE(excluded.teams_women, clubs.teams_women),
+        teams_youth = COALESCE(excluded.teams_youth, clubs.teams_youth),
+        teams_veterans = COALESCE(excluded.teams_veterans, clubs.teams_veterans),
+        label = COALESCE(excluded.label, clubs.label),
+        palette = COALESCE(excluded.palette, clubs.palette),
+        updated_at = CURRENT_TIMESTAMP
+    """
+    
+    # Valeurs par défaut
+    data = {
+        'code': club.get('code'),
+        'name': club.get('name'),
+        'province': club.get('province'),
+        'full_name': club.get('full_name'),
+        'email': club.get('email'),
+        'phone': club.get('phone'),
+        'status': club.get('status'),
+        'website': club.get('website'),
+        'has_shower': club.get('has_shower'),
+        'venue_name': club.get('venue_name'),
+        'venue_address': club.get('venue_address'),
+        'venue_phone': club.get('venue_phone'),
+        'venue_pmr': club.get('venue_pmr'),
+        'venue_remarks': club.get('venue_remarks'),
+        'teams_men': club.get('teams_men', 0),
+        'teams_women': club.get('teams_women', 0),
+        'teams_youth': club.get('teams_youth', 0),
+        'teams_veterans': club.get('teams_veterans', 0),
+        'label': club.get('label'),
+        'palette': club.get('palette'),
+    }
+    
+    if db:
+        db.execute(sql, data)
+    else:
+        with get_db() as conn:
+            conn.execute(sql, data)
+
+
+def get_all_clubs(province: str = None, limit: int = None, offset: int = 0) -> List[Dict]:
+    """Récupère tous les clubs avec filtres optionnels."""
+    sql = "SELECT * FROM clubs"
+    params = []
+    
+    if province:
+        sql += " WHERE province = ?"
+        params.append(province)
+    
+    sql += " ORDER BY code"
+    
+    if limit:
+        sql += " LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+    
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_club(code: str) -> Optional[Dict]:
+    """Récupère un club par son code."""
+    with get_db() as db:
+        cursor = db.execute("SELECT * FROM clubs WHERE code = ?", (code,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_provinces() -> List[str]:
+    """Récupère la liste des provinces distinctes."""
+    with get_db() as db:
+        cursor = db.execute("SELECT DISTINCT province FROM clubs WHERE province IS NOT NULL ORDER BY province")
+        return [row[0] for row in cursor.fetchall()]
+
+
+# =============================================================================
+# PLAYERS
+# =============================================================================
+
+def insert_player(player: Dict[str, Any], db: sqlite3.Connection = None) -> None:
+    """Insère ou met à jour un joueur."""
+    sql = """
+    INSERT INTO players (licence, name, club_code, ranking, category, points_start,
+                         points_current, ranking_position, total_wins, total_losses,
+                         women_points_start, women_points_current, women_total_wins,
+                         women_total_losses, last_update)
+    VALUES (:licence, :name, :club_code, :ranking, :category, :points_start,
+            :points_current, :ranking_position, :total_wins, :total_losses,
+            :women_points_start, :women_points_current, :women_total_wins,
+            :women_total_losses, :last_update)
+    ON CONFLICT(licence) DO UPDATE SET
+        name = COALESCE(NULLIF(excluded.name, ''), players.name),
+        club_code = COALESCE(excluded.club_code, players.club_code),
+        ranking = COALESCE(NULLIF(excluded.ranking, ''), players.ranking),
+        category = COALESCE(excluded.category, players.category),
+        points_start = COALESCE(excluded.points_start, players.points_start),
+        points_current = COALESCE(excluded.points_current, players.points_current),
+        ranking_position = COALESCE(excluded.ranking_position, players.ranking_position),
+        total_wins = COALESCE(excluded.total_wins, players.total_wins),
+        total_losses = COALESCE(excluded.total_losses, players.total_losses),
+        women_points_start = COALESCE(excluded.women_points_start, players.women_points_start),
+        women_points_current = COALESCE(excluded.women_points_current, players.women_points_current),
+        women_total_wins = COALESCE(excluded.women_total_wins, players.women_total_wins),
+        women_total_losses = COALESCE(excluded.women_total_losses, players.women_total_losses),
+        last_update = COALESCE(excluded.last_update, players.last_update),
+        updated_at = CURRENT_TIMESTAMP
+    """
+    
+    data = {
+        'licence': player.get('licence'),
+        'name': player.get('name'),
+        'club_code': player.get('club_code'),
+        'ranking': player.get('ranking'),
+        'category': player.get('category'),
+        'points_start': player.get('points_start'),
+        'points_current': player.get('points_current'),
+        'ranking_position': player.get('ranking_position'),
+        'total_wins': player.get('total_wins', 0),
+        'total_losses': player.get('total_losses', 0),
+        'women_points_start': player.get('women_points_start'),
+        'women_points_current': player.get('women_points_current'),
+        'women_total_wins': player.get('women_total_wins', 0),
+        'women_total_losses': player.get('women_total_losses', 0),
+        'last_update': player.get('last_update'),
+    }
+    
+    if db:
+        db.execute(sql, data)
+    else:
+        with get_db() as conn:
+            conn.execute(sql, data)
+
+
+def get_all_players(
+    club_code: str = None,
+    ranking: str = None,
+    min_points: float = None,
+    max_points: float = None,
+    search: str = None,
+    limit: int = None,
+    offset: int = 0,
+    order_by: str = "points_current DESC"
+) -> List[Dict]:
+    """Récupère les joueurs avec filtres."""
+    sql = "SELECT * FROM players WHERE 1=1"
+    params = []
+    
+    if club_code:
+        sql += " AND club_code = ?"
+        params.append(club_code)
+    
+    if ranking:
+        sql += " AND ranking = ?"
+        params.append(ranking)
+    
+    if min_points is not None:
+        sql += " AND points_current >= ?"
+        params.append(min_points)
+    
+    if max_points is not None:
+        sql += " AND points_current <= ?"
+        params.append(max_points)
+    
+    if search:
+        sql += " AND (name LIKE ? OR licence LIKE ?)"
+        params.extend([f"%{search}%", f"%{search}%"])
+    
+    # Validation de order_by pour éviter injection SQL
+    allowed_orders = ["points_current DESC", "points_current ASC", "name ASC", "name DESC", 
+                      "ranking ASC", "ranking DESC", "ranking_position ASC"]
+    if order_by not in allowed_orders:
+        order_by = "points_current DESC"
+    
+    sql += f" ORDER BY {order_by}"
+    
+    if limit:
+        sql += " LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+    
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_player(licence: str) -> Optional[Dict]:
+    """Récupère un joueur par sa licence."""
+    with get_db() as db:
+        cursor = db.execute("SELECT * FROM players WHERE licence = ?", (licence,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_club_players(club_code: str) -> List[Dict]:
+    """Récupère tous les joueurs d'un club."""
+    return get_all_players(club_code=club_code, order_by="points_current DESC")
+
+
+# =============================================================================
+# MATCHES
+# =============================================================================
+
+def insert_match(match: Dict[str, Any], db: sqlite3.Connection = None) -> None:
+    """Insère un match (ignore si doublon)."""
+    sql = """
+    INSERT OR IGNORE INTO matches (player_licence, fiche_type, date, division, 
+                                   opponent_club, opponent_name, opponent_licence,
+                                   opponent_ranking, opponent_points, score, won, points_change)
+    VALUES (:player_licence, :fiche_type, :date, :division, :opponent_club,
+            :opponent_name, :opponent_licence, :opponent_ranking, :opponent_points,
+            :score, :won, :points_change)
+    """
+    
+    data = {
+        'player_licence': match.get('player_licence'),
+        'fiche_type': match.get('fiche_type', 'masculine'),
+        'date': match.get('date'),
+        'division': match.get('division'),
+        'opponent_club': match.get('opponent_club'),
+        'opponent_name': match.get('opponent_name'),
+        'opponent_licence': match.get('opponent_licence'),
+        'opponent_ranking': match.get('opponent_ranking'),
+        'opponent_points': match.get('opponent_points'),
+        'score': match.get('score'),
+        'won': match.get('won', False),
+        'points_change': match.get('points_change'),
+    }
+    
+    if db:
+        db.execute(sql, data)
+    else:
+        with get_db() as conn:
+            conn.execute(sql, data)
+
+
+def get_player_matches(
+    licence: str,
+    fiche_type: str = None,
+    opponent_licence: str = None,
+    limit: int = None
+) -> List[Dict]:
+    """Récupère les matchs d'un joueur."""
+    sql = "SELECT * FROM matches WHERE player_licence = ?"
+    params = [licence]
+    
+    if fiche_type:
+        sql += " AND fiche_type = ?"
+        params.append(fiche_type)
+    
+    if opponent_licence:
+        sql += " AND opponent_licence = ?"
+        params.append(opponent_licence)
+    
+    sql += " ORDER BY date DESC"
+    
+    if limit:
+        sql += " LIMIT ?"
+        params.append(limit)
+    
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_head_to_head(licence1: str, licence2: str) -> Dict:
+    """Récupère l'historique des confrontations entre deux joueurs."""
+    with get_db() as db:
+        # Matchs de licence1 contre licence2
+        cursor = db.execute("""
+            SELECT * FROM matches 
+            WHERE player_licence = ? AND opponent_licence = ?
+            ORDER BY date DESC
+        """, (licence1, licence2))
+        matches_1v2 = [dict(row) for row in cursor.fetchall()]
+        
+        # Matchs de licence2 contre licence1
+        cursor = db.execute("""
+            SELECT * FROM matches 
+            WHERE player_licence = ? AND opponent_licence = ?
+            ORDER BY date DESC
+        """, (licence2, licence1))
+        matches_2v1 = [dict(row) for row in cursor.fetchall()]
+        
+        wins_1 = sum(1 for m in matches_1v2 if m['won'])
+        wins_2 = sum(1 for m in matches_2v1 if m['won'])
+        
+        return {
+            'player1_licence': licence1,
+            'player2_licence': licence2,
+            'player1_wins': wins_1,
+            'player2_wins': wins_2,
+            'total_matches': len(matches_1v2) + len(matches_2v1),
+            'matches': matches_1v2 + matches_2v1
+        }
+
+
+# =============================================================================
+# PLAYER STATS
+# =============================================================================
+
+def insert_player_stat(stat: Dict[str, Any], db: sqlite3.Connection = None) -> None:
+    """Insère ou met à jour une statistique par classement."""
+    sql = """
+    INSERT INTO player_stats (player_licence, fiche_type, opponent_ranking, wins, losses, ratio)
+    VALUES (:player_licence, :fiche_type, :opponent_ranking, :wins, :losses, :ratio)
+    ON CONFLICT(player_licence, fiche_type, opponent_ranking) DO UPDATE SET
+        wins = excluded.wins,
+        losses = excluded.losses,
+        ratio = excluded.ratio
+    """
+    
+    data = {
+        'player_licence': stat.get('player_licence'),
+        'fiche_type': stat.get('fiche_type', 'masculine'),
+        'opponent_ranking': stat.get('opponent_ranking') or stat.get('ranking'),
+        'wins': stat.get('wins', 0),
+        'losses': stat.get('losses', 0),
+        'ratio': stat.get('ratio', 0.0),
+    }
+    
+    if db:
+        db.execute(sql, data)
+    else:
+        with get_db() as conn:
+            conn.execute(sql, data)
+
+
+def get_player_stats(licence: str, fiche_type: str = None) -> List[Dict]:
+    """Récupère les statistiques d'un joueur par classement adverse."""
+    sql = "SELECT * FROM player_stats WHERE player_licence = ?"
+    params = [licence]
+    
+    if fiche_type:
+        sql += " AND fiche_type = ?"
+        params.append(fiche_type)
+    
+    sql += " ORDER BY opponent_ranking"
+    
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+# =============================================================================
+# RANKINGS & STATISTICS
+# =============================================================================
+
+def get_top_players(
+    limit: int = 100,
+    province: str = None,
+    club_code: str = None,
+    ranking: str = None
+) -> List[Dict]:
+    """Récupère le classement des meilleurs joueurs."""
+    sql = """
+        SELECT p.*, c.name as club_name, c.province
+        FROM players p
+        LEFT JOIN clubs c ON p.club_code = c.code
+        WHERE p.points_current IS NOT NULL
+    """
+    params = []
+    
+    if province:
+        sql += " AND c.province = ?"
+        params.append(province)
+    
+    if club_code:
+        sql += " AND p.club_code = ?"
+        params.append(club_code)
+    
+    if ranking:
+        sql += " AND p.ranking = ?"
+        params.append(ranking)
+    
+    sql += " ORDER BY p.points_current DESC LIMIT ?"
+    params.append(limit)
+    
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_top_progressions(limit: int = 100) -> List[Dict]:
+    """Récupère les meilleures progressions de la saison."""
+    sql = """
+        SELECT p.*, c.name as club_name,
+               (p.points_current - p.points_start) as progression
+        FROM players p
+        LEFT JOIN clubs c ON p.club_code = c.code
+        WHERE p.points_start IS NOT NULL AND p.points_current IS NOT NULL
+        ORDER BY progression DESC
+        LIMIT ?
+    """
+    
+    with get_db() as db:
+        cursor = db.execute(sql, (limit,))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def search_players(query: str, limit: int = 50) -> List[Dict]:
+    """Recherche de joueurs par nom ou licence."""
+    sql = """
+        SELECT p.*, c.name as club_name
+        FROM players p
+        LEFT JOIN clubs c ON p.club_code = c.code
+        WHERE p.name LIKE ? OR p.licence LIKE ?
+        ORDER BY p.points_current DESC NULLS LAST
+        LIMIT ?
+    """
+    
+    with get_db() as db:
+        cursor = db.execute(sql, (f"%{query}%", f"%{query}%", limit))
+        return [dict(row) for row in cursor.fetchall()]

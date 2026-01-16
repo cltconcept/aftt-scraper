@@ -1,0 +1,1701 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AFTT Data Explorer</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏓</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --bg-hover: #222230;
+            --accent-primary: #6366f1;
+            --accent-secondary: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: #2d2d3a;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+            --gradient-2: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Background Pattern */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(14, 165, 233, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* Header */
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 2rem;
+        }
+
+
+        /* Navigation */
+        nav {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .nav-btn {
+            padding: 0.6rem 1.2rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .nav-btn.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        /* Main Content */
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Section */
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .stat-icon.clubs { background: rgba(99, 102, 241, 0.2); }
+        .stat-icon.members { background: rgba(16, 185, 129, 0.2); }
+        .stat-icon.players { background: rgba(245, 158, 11, 0.2); }
+
+        .stat-info h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .stat-info p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* Search */
+        .search-container {
+            margin-bottom: 1.5rem;
+        }
+
+        .search-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 0.75rem 1rem;
+            padding-left: 2.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        select.search-input {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            padding-right: 2.5rem;
+            cursor: pointer;
+        }
+
+        .search-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .search-wrapper::before {
+            content: '🔍';
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1rem;
+        }
+
+        /* Data Grid */
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1rem;
+        }
+
+        /* Card */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .card-badge {
+            padding: 0.25rem 0.6rem;
+            background: var(--accent-primary);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .card-subtitle {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-stats {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .card-stat {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        /* Detail Panel */
+        .detail-panel {
+            position: fixed;
+            top: 0;
+            right: -600px;
+            width: 600px;
+            max-width: 100vw;
+            height: 100vh;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+            z-index: 200;
+            transition: right 0.3s ease;
+            overflow-y: auto;
+        }
+
+        .detail-panel.open {
+            right: 0;
+        }
+
+        .detail-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 199;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .detail-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .detail-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            z-index: 10;
+        }
+
+        .detail-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            width: 36px;
+            height: 36px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 1.25rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .close-btn:hover {
+            background: var(--error);
+            border-color: var(--error);
+        }
+
+        .detail-content {
+            padding: 1.5rem;
+        }
+
+        /* JSON Viewer */
+        .json-viewer {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            overflow-x: auto;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .json-key { color: #818cf8; }
+        .json-string { color: #10b981; }
+        .json-number { color: #f59e0b; }
+        .json-boolean { color: #ef4444; }
+        .json-null { color: #64748b; }
+
+        /* Info Grid */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .info-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .info-label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .info-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .info-value.positive { color: var(--success); }
+        .info-value.negative { color: var(--error); }
+
+        /* Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table th {
+            background: var(--bg-card);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .data-table tr:hover td {
+            background: var(--bg-hover);
+        }
+
+        /* File Upload */
+        .file-upload {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 2rem;
+        }
+
+        .file-upload:hover {
+            border-color: var(--accent-primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .file-upload input {
+            display: none;
+        }
+
+        .file-upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .file-upload h3 {
+            margin-bottom: 0.5rem;
+        }
+
+        .file-upload p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            nav {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .detail-panel {
+                width: 100vw;
+                right: -100vw;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div>
+                <h1 style="font-size: 1.5rem; font-weight: 700; background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">AFTT Data Explorer</h1>
+            </div>
+            <nav>
+                <button class="nav-btn active" data-section="clubs">Clubs</button>
+                <button class="nav-btn" data-section="members">Membres</button>
+                <button class="nav-btn" data-section="players">Joueurs</button>
+                <a href="api-docs.html" class="nav-btn" style="text-decoration: none; display: inline-block;">📚 API Docs</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-icon clubs">🏢</div>
+                <div class="stat-info">
+                    <h3 id="stat-clubs">0</h3>
+                    <p>Clubs</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon members">👥</div>
+                <div class="stat-info">
+                    <h3 id="stat-members">0</h3>
+                    <p>Membres chargés</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon players">🎯</div>
+                <div class="stat-info">
+                    <h3 id="stat-players">0</h3>
+                    <p>Fiches joueurs</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clubs Section -->
+        <section id="clubs-section" class="section active">
+            <div id="clubs-header" style="margin-bottom: 1.5rem;">
+                <div id="regions-view-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600;">Régions</h2>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <select id="region-select" class="search-input" style="padding: 0.5rem 1rem; cursor: pointer; min-width: 200px;">
+                            <option value="">Toutes les régions</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="clubs-view-header" style="display: none; flex-direction: column; gap: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                        <h2 style="font-size: 1.5rem; font-weight: 600;" id="clubs-view-title">Clubs</h2>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button id="reload-clubs-btn" class="nav-btn" style="text-decoration: none; display: inline-block;">🔄 Recharger</button>
+                            <button id="back-to-regions-btn" class="nav-btn" style="text-decoration: none; display: inline-block;">← Retour aux régions</button>
+                        </div>
+                    </div>
+                    <div class="search-wrapper" style="max-width: 400px;">
+                        <input type="text" class="search-input" id="clubs-search" placeholder="Rechercher un club...">
+                    </div>
+                </div>
+            </div>
+            <div class="data-grid" id="clubs-grid"></div>
+        </section>
+
+        <!-- Members Section -->
+        <section id="members-section" class="section">
+            <div class="search-container">
+                <div class="search-wrapper">
+                    <input type="text" class="search-input" id="members-search" placeholder="Rechercher un membre...">
+                </div>
+            </div>
+            <div id="members-content">
+                <p style="color: var(--text-muted); text-align: center; padding: 3rem;">
+                    Cliquez sur un club pour voir ses membres, ou utilisez la recherche ci-dessus.
+                </p>
+            </div>
+        </section>
+
+        <!-- Players Section -->
+        <section id="players-section" class="section">
+            <div class="search-container">
+                <div class="search-wrapper">
+                    <input type="text" class="search-input" id="players-search" placeholder="Rechercher un joueur...">
+                </div>
+            </div>
+            <div class="data-grid" id="players-grid"></div>
+        </section>
+
+    </main>
+
+    <!-- Detail Panel -->
+    <div class="detail-overlay" id="detail-overlay"></div>
+    <div class="detail-panel" id="detail-panel">
+        <div class="detail-header">
+            <h2 class="detail-title" id="detail-title">Détails</h2>
+            <button class="close-btn" id="close-detail">×</button>
+        </div>
+        <div class="detail-content" id="detail-content"></div>
+    </div>
+
+    <script>
+        // State
+        const state = {
+            clubs: [],
+            members: {},
+            players: {},
+            provinces: [],
+            selectedProvince: '',
+            currentSection: 'clubs',
+            viewMode: 'regions' // 'regions' ou 'clubs'
+        };
+
+        // DOM Elements
+        const sections = document.querySelectorAll('.section');
+        const navBtns = document.querySelectorAll('.nav-btn');
+        const detailPanel = document.getElementById('detail-panel');
+        const detailOverlay = document.getElementById('detail-overlay');
+        const detailTitle = document.getElementById('detail-title');
+        const detailContent = document.getElementById('detail-content');
+
+        // Navigation
+        navBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const section = btn.dataset.section;
+                
+                // Si c'est un lien (comme API Docs), ne pas gérer la navigation
+                if (!section) {
+                    return;
+                }
+                
+                const targetSection = document.getElementById(`${section}-section`);
+                if (!targetSection) {
+                    console.error(`Section ${section}-section introuvable`);
+                    return;
+                }
+                
+                navBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                sections.forEach(s => s.classList.remove('active'));
+                targetSection.classList.add('active');
+                state.currentSection = section;
+            });
+        });
+
+        // Detail Panel
+        function openDetail(title, content) {
+            detailTitle.textContent = title;
+            detailContent.innerHTML = content;
+            detailPanel.classList.add('open');
+            detailOverlay.classList.add('open');
+        }
+
+        function closeDetail() {
+            detailPanel.classList.remove('open');
+            detailOverlay.classList.remove('open');
+        }
+
+        document.getElementById('close-detail').addEventListener('click', closeDetail);
+        detailOverlay.addEventListener('click', closeDetail);
+
+        // JSON Syntax Highlighting
+        function syntaxHighlight(json) {
+            if (typeof json !== 'string') {
+                json = JSON.stringify(json, null, 2);
+            }
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        // Update Stats
+        async function updateStats() {
+            // Clubs : nombre chargé dans state
+            document.getElementById('stat-clubs').textContent = state.clubs.length;
+            
+            // Joueurs : nombre chargé dans state
+            document.getElementById('stat-players').textContent = Object.keys(state.players).length;
+            
+            // Membres : nombre de joueurs avec des statistiques (matchs) dans la base de données
+            try {
+                const statsRes = await fetch(`${API_BASE_URL}/api/stats`);
+                if (statsRes.ok) {
+                    const stats = await statsRes.json();
+                    document.getElementById('stat-members').textContent = stats.players_with_matches || 0;
+                } else {
+                    // Fallback : utiliser le nombre de joueurs chargés
+                    document.getElementById('stat-members').textContent = Object.keys(state.players).length;
+                }
+            } catch (e) {
+                // En cas d'erreur, utiliser le nombre de joueurs chargés
+                document.getElementById('stat-members').textContent = Object.keys(state.players).length;
+            }
+        }
+
+        // Render Regions
+        function renderRegions() {
+            const grid = document.getElementById('clubs-grid');
+            
+            if (!grid) {
+                console.error('Élément clubs-grid introuvable');
+                return;
+            }
+            
+            // Vérifier que les clubs sont chargés
+            if (!state.clubs || state.clubs.length === 0) {
+                grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 3rem;">
+                    Chargement des régions...
+                </p>`;
+                return;
+            }
+            
+            // Calculer le nombre de clubs par province
+            // Normaliser les noms de provinces pour éviter les doublons
+            const provinceCounts = {};
+            state.clubs.forEach(club => {
+                let province = club.province || 'Non spécifié';
+                province = province.trim();
+                // Normaliser les variations de noms de provinces
+                if (province.toLowerCase().includes('hainaut')) {
+                    province = 'Hainaut';
+                }
+                provinceCounts[province] = (provinceCounts[province] || 0) + 1;
+            });
+            
+            // Debug: vérifier si H004 est présent
+            const h004 = state.clubs.find(c => c.code === 'H004');
+            if (h004) {
+                console.log('Club H004 trouvé:', h004);
+            } else {
+                console.warn('Club H004 non trouvé dans les clubs chargés');
+            }
+
+            // Trier les provinces par nombre de clubs (décroissant)
+            const sortedProvinces = Object.entries(provinceCounts)
+                .sort((a, b) => b[1] - a[1]);
+
+            if (sortedProvinces.length === 0) {
+                grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 3rem;">
+                    Aucune région disponible
+                </p>`;
+                return;
+            }
+
+            grid.innerHTML = sortedProvinces.map(([province, count]) => `
+                <div class="card" onclick="showProvinceClubs('${province.replace(/'/g, "\\'")}')" style="cursor: pointer;">
+                    <div class="card-header">
+                        <span class="card-title">${province}</span>
+                    </div>
+                    <div class="card-subtitle">${count} ${count === 1 ? 'club' : 'clubs'}</div>
+                    <div class="card-stats">
+                        <div class="card-stat">📍 ${province}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Load clubs for a province from API
+        async function loadClubsForProvince(province) {
+            try {
+                const url = province 
+                    ? `${API_BASE_URL}/api/clubs?province=${encodeURIComponent(province)}`
+                    : `${API_BASE_URL}/api/clubs`;
+                
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    state.clubs = data.clubs || data;
+                    console.log(`✅ ${state.clubs.length} clubs chargés${province ? ` pour ${province}` : ''}`);
+                    return true;
+                }
+            } catch (e) {
+                console.error(`Erreur lors du chargement des clubs pour ${province}:`, e);
+            }
+            return false;
+        }
+
+        // Show clubs for a province
+        async function showProvinceClubs(province) {
+            state.selectedProvince = province;
+            state.viewMode = 'clubs';
+            
+            // Afficher le header des clubs
+            document.getElementById('regions-view-header').style.display = 'none';
+            document.getElementById('clubs-view-header').style.display = 'flex';
+            document.getElementById('clubs-view-title').textContent = `Clubs - ${province}`;
+            
+            // Réinitialiser la recherche
+            document.getElementById('clubs-search').value = '';
+            
+            // Charger les clubs de cette province depuis l'API
+            const grid = document.getElementById('clubs-grid');
+            grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 3rem;">Chargement des clubs...</p>`;
+            
+            await loadClubsForProvince(province);
+            
+            // Afficher les clubs
+            renderClubs('');
+        }
+
+        // Back to regions view
+        async function backToRegions() {
+            state.selectedProvince = '';
+            state.viewMode = 'regions';
+            
+            // Afficher le header des régions
+            const regionsHeader = document.getElementById('regions-view-header');
+            const clubsHeader = document.getElementById('clubs-view-header');
+            
+            if (regionsHeader) regionsHeader.style.display = 'flex';
+            if (clubsHeader) clubsHeader.style.display = 'none';
+            
+            // Réinitialiser la recherche
+            const searchInput = document.getElementById('clubs-search');
+            if (searchInput) searchInput.value = '';
+            
+            // Réinitialiser le sélecteur de région
+            const regionSelect = document.getElementById('region-select');
+            if (regionSelect) regionSelect.value = '';
+            
+            // Recharger tous les clubs pour recalculer les régions
+            await loadClubsForProvince('');
+            
+            // Afficher les régions
+            renderRegions();
+        }
+        
+        // Load provinces list
+        async function loadProvincesList() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/clubs/provinces`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const provinces = data.provinces || [];
+                    
+                    const select = document.getElementById('region-select');
+                    if (select) {
+                        select.innerHTML = '<option value="">Toutes les régions</option>';
+                        provinces.forEach(province => {
+                            const option = document.createElement('option');
+                            option.value = province;
+                            option.textContent = province;
+                            select.appendChild(option);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('Erreur lors du chargement des provinces:', e);
+            }
+        }
+        
+        // Reload clubs for selected region
+        async function reloadClubsForSelectedRegion() {
+            // Recharger les clubs de la région actuellement affichée
+            if (state.selectedProvince) {
+                // Afficher un message de chargement avec progression
+                const grid = document.getElementById('clubs-grid');
+                if (grid) {
+                    grid.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
+                            <div style="font-size: 2rem; margin-bottom: 1rem;">⏳</div>
+                            <h3>Scraping en cours...</h3>
+                            <p style="color: var(--text-muted);">Récupération des données pour tous les clubs de ${state.selectedProvince}</p>
+                            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 1rem;">Cela peut prendre plusieurs minutes...</p>
+                        </div>
+                    `;
+                }
+                
+                try {
+                    // Lancer le scraping de tous les clubs de la province
+                    const scrapeRes = await fetch(`${API_BASE_URL}/api/clubs/province/${encodeURIComponent(state.selectedProvince)}/scrape`, {
+                        method: 'POST'
+                    });
+                    
+                    if (!scrapeRes.ok) {
+                        throw new Error(`Erreur HTTP: ${scrapeRes.status}`);
+                    }
+                    
+                    const scrapeData = await scrapeRes.json();
+                    console.log('Scraping terminé:', scrapeData);
+                    
+                    // Afficher les résultats
+                    if (grid) {
+                        grid.innerHTML = `
+                            <div style="grid-column: 1/-1; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 10px; padding: 1.5rem; margin-bottom: 1rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 1.5rem;">✅</span>
+                                    <strong style="color: var(--success);">Scraping terminé avec succès</strong>
+                                </div>
+                                <div style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.8;">
+                                    <div>${scrapeData.clubs_scraped}/${scrapeData.clubs_total} clubs traités</div>
+                                    <div>${scrapeData.members_scraped} membres scrapés</div>
+                                    <div>${scrapeData.players_scraped} fiches joueurs scrapées</div>
+                                    ${scrapeData.clubs_errors?.length > 0 ? `<div style="color: var(--warning);">⚠️ ${scrapeData.clubs_errors.length} erreur(s) de club</div>` : ''}
+                                    ${scrapeData.players_errors?.length > 0 ? `<div style="color: var(--warning);">⚠️ ${scrapeData.players_errors.length} erreur(s) de joueur</div>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Recharger les clubs depuis l'API pour afficher les données mises à jour
+                    await loadClubsForProvince(state.selectedProvince);
+                    
+                    // Réafficher les clubs
+                    const searchValue = document.getElementById('clubs-search')?.value || '';
+                    renderClubs(searchValue);
+                    
+                    // Mettre à jour les stats
+                    await updateStats();
+                    
+                } catch (e) {
+                    console.error(`Erreur lors du scraping de la province ${state.selectedProvince}:`, e);
+                    if (grid) {
+                        grid.innerHTML = `
+                            <div style="grid-column: 1/-1; background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); border-radius: 10px; padding: 1.5rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 1.5rem;">❌</span>
+                                    <strong style="color: var(--error);">Erreur lors du scraping</strong>
+                                </div>
+                                <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                                    ${e.message || 'Une erreur est survenue'}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+            } else {
+                // Si on est sur la vue régions, recharger tous les clubs
+                await loadClubsForProvince('');
+                renderRegions();
+            }
+        }
+
+        // Render Clubs
+        function renderClubs(filter = '') {
+            const grid = document.getElementById('clubs-grid');
+            
+            // Filtrer par province sélectionnée
+            let filtered = state.clubs.filter(club => club.province === state.selectedProvince);
+            
+            // Filtrer par recherche textuelle
+            if (filter) {
+                filtered = filtered.filter(club => 
+                    club.name?.toLowerCase().includes(filter.toLowerCase()) ||
+                    club.code?.toLowerCase().includes(filter.toLowerCase())
+                );
+            }
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 3rem;">
+                    Aucun club trouvé dans la région "${state.selectedProvince}"
+                </p>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(club => `
+                <div class="card" onclick="showClubDetail('${club.code}')">
+                    <div class="card-header">
+                        <span class="card-badge">${club.code}</span>
+                        <span class="card-title">${club.name || 'N/A'}</span>
+                    </div>
+                    <div class="card-subtitle">${club.province || ''}</div>
+                    <div class="card-stats">
+                        <div class="card-stat">📍 ${club.province || 'N/A'}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+
+        // Fonction de tri par classement
+        // Ordre: NC < E6 < E4 < E2 < E0 < D6 < D4 < D2 < D0 < C6 < C4 < C2 < C0 < B6 < B4 < B2 < B0 < A
+        // Note: Le chiffre est inversé (6 < 4 < 2 < 0) car E6 est plus faible que E0
+        function sortPlayersByRanking(players) {
+            function getRankingValue(ranking) {
+                if (!ranking) return -1; // Pas de classement = le plus bas
+                const r = ranking.trim().toUpperCase();
+                
+                // NC (Non Classé) = 0
+                if (r === 'NC' || r === 'N') return 0;
+                
+                // Extraire la lettre et le chiffre
+                const match = r.match(/^([ABCDE])(\d+)$/);
+                if (!match) return 9999; // Classement inconnu = le plus haut
+                
+                const letter = match[1];
+                const number = parseInt(match[2], 10);
+                
+                // Base par lettre: E < D < C < B < A
+                // E = 100-199, D = 200-299, C = 300-399, B = 400-499, A = 500-599
+                let base = 0;
+                if (letter === 'E') base = 100;
+                else if (letter === 'D') base = 200;
+                else if (letter === 'C') base = 300;
+                else if (letter === 'B') base = 400;
+                else if (letter === 'A') base = 500;
+                
+                // Le chiffre est inversé: 6 est plus faible que 0
+                // Donc E6 (100 + (10-6)) = 104, E0 (100 + (10-0)) = 110
+                return base + (10 - number);
+            }
+            
+            return [...players].sort((a, b) => {
+                const valA = getRankingValue(a.ranking);
+                const valB = getRankingValue(b.ranking);
+                return valA - valB; // Tri croissant : NC < E6 < ... < A0
+            });
+        }
+
+        // Show Club Detail
+        async function showClubDetail(code) {
+            const club = state.clubs.find(c => c.code === code);
+            if (!club) return;
+
+            // Charger les données complètes du club depuis l'API
+            let clubData = club;
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/clubs/${code}`);
+                if (res.ok) {
+                    clubData = await res.json();
+                }
+            } catch (e) {
+                console.error(`Erreur lors du chargement du club ${code}:`, e);
+            }
+
+            // Charger TOUS les joueurs du club depuis l'API (sans limite)
+            let clubPlayers = [];
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/clubs/${code}/players?limit=10000`);
+                if (res.ok) {
+                    const data = await res.json();
+                    clubPlayers = data.players || [];
+                }
+            } catch (e) {
+                console.error(`Erreur lors du chargement des joueurs pour ${code}:`, e);
+            }
+
+            // Trier les joueurs par classement
+            const sortedPlayers = sortPlayersByRanking(clubPlayers);
+
+            // Construire le contenu avec les données du club
+            let content = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h2 style="margin: 0;">${clubData.code} - ${clubData.name}</h2>
+                    <button id="reload-club-btn" class="nav-btn" style="text-decoration: none; display: inline-block;">
+                        🔄 Recharger
+                    </button>
+                </div>
+                
+                <div class="info-grid" style="margin-bottom: 1.5rem;">
+                    <div class="info-item">
+                        <div class="info-label">Province</div>
+                        <div class="info-value">${clubData.province || 'N/A'}</div>
+                    </div>
+                    ${clubData.full_name ? `<div class="info-item"><div class="info-label">Nom complet</div><div class="info-value">${clubData.full_name}</div></div>` : ''}
+                    ${clubData.email ? `<div class="info-item"><div class="info-label">Email</div><div class="info-value">${clubData.email}</div></div>` : ''}
+                    ${clubData.phone ? `<div class="info-item"><div class="info-label">Téléphone</div><div class="info-value">${clubData.phone}</div></div>` : ''}
+                </div>
+            `;
+
+            // Informations supplémentaires du club
+            if (clubData.venue_name || clubData.venue_address) {
+                content += `
+                    <div class="info-grid" style="margin-bottom: 1.5rem;">
+                        ${clubData.venue_name ? `<div class="info-item"><div class="info-label">Local</div><div class="info-value">${clubData.venue_name}</div></div>` : ''}
+                        ${clubData.venue_address ? `<div class="info-item"><div class="info-label">Adresse</div><div class="info-value">${clubData.venue_address}</div></div>` : ''}
+                    </div>
+                `;
+            }
+
+            // Tableau complet des membres triés par classement
+            if (sortedPlayers.length > 0) {
+                content += `
+                    <h3 style="margin: 1.5rem 0 1rem;">Membres (${sortedPlayers.length}) - Triés par classement</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="data-table" style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th style="text-align: left; padding: 0.75rem;">#</th>
+                                    <th style="text-align: left; padding: 0.75rem;">Licence</th>
+                                    <th style="text-align: left; padding: 0.75rem;">Nom</th>
+                                    <th style="text-align: center; padding: 0.75rem;">Catégorie</th>
+                                    <th style="text-align: center; padding: 0.75rem;">Classement</th>
+                                    <th style="text-align: right; padding: 0.75rem;">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sortedPlayers.map((p, index) => `
+                                    <tr onclick="showPlayerFromLicence('${p.licence}')" style="cursor: pointer; border-bottom: 1px solid var(--border);">
+                                        <td style="padding: 0.75rem; color: var(--text-muted);">${index + 1}</td>
+                                        <td style="padding: 0.75rem; font-family: monospace;">${p.licence}</td>
+                                        <td style="padding: 0.75rem; font-weight: 500;">${p.name}</td>
+                                        <td style="padding: 0.75rem; text-align: center;">${p.category || '-'}</td>
+                                        <td style="padding: 0.75rem; text-align: center; font-weight: 600;">${p.ranking || 'NC'}</td>
+                                        <td style="padding: 0.75rem; text-align: right; font-family: monospace;">${p.points_current ? p.points_current.toFixed(1) : '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                content += `
+                    <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid var(--primary); border-radius: 10px; padding: 1.5rem; margin-top: 1.5rem; text-align: center;">
+                        <p style="color: var(--text-secondary); margin: 0; font-size: 1.1rem;">Aucun membre trouvé.</p>
+                        <p style="color: var(--text-muted); margin: 0.5rem 0 0 0;">Cliquez sur "Recharger" pour scraper les données du club.</p>
+                    </div>
+                `;
+            }
+
+            openDetail(`${clubData.code} - ${clubData.name}`, content);
+            
+            // Ajouter l'event listener pour le bouton Recharger
+            const reloadBtn = document.getElementById('reload-club-btn');
+            if (reloadBtn) {
+                reloadBtn.onclick = () => reloadClubData(code);
+            }
+        }
+
+        // Reload Club Data (scraping)
+        async function reloadClubData(code) {
+            const club = state.clubs.find(c => c.code === code);
+            if (!club) return;
+
+            // Afficher un message de chargement
+            let content = `
+                <div style="text-align: center; padding: 3rem;">
+                    <div style="font-size: 2rem; margin-bottom: 1rem;">⏳</div>
+                    <h3>Scraping en cours...</h3>
+                    <p style="color: var(--text-muted);">Récupération des membres et fiches joueurs pour ${club.name}</p>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 1rem;">Cela peut prendre quelques instants...</p>
+                </div>
+            `;
+            openDetail(`${club.code} - ${club.name}`, content);
+
+            // Scraper le club
+            try {
+                const scrapeRes = await fetch(`${API_BASE_URL}/api/clubs/${code}/scrape`, {
+                    method: 'POST'
+                });
+                
+                if (!scrapeRes.ok) {
+                    const errorData = await scrapeRes.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `Erreur HTTP: ${scrapeRes.status}`);
+                }
+                
+                const scrapeData = await scrapeRes.json();
+                console.log('Scraping terminé:', scrapeData);
+
+                // Recharger les données du club depuis l'API
+                await showClubDetail(code);
+                
+                // Afficher un message de succès temporaire
+                const detailContent = document.getElementById('detail-content');
+                if (detailContent) {
+                    const successMsg = document.createElement('div');
+                    successMsg.style.cssText = 'background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;';
+                    successMsg.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <span style="font-size: 1.5rem;">✅</span>
+                            <strong style="color: var(--success);">Scraping terminé avec succès</strong>
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                            ${scrapeData.members_scraped} membres • ${scrapeData.players_scraped} fiches joueurs
+                            ${scrapeData.players_errors?.length > 0 ? `<br><span style="color: var(--warning);">⚠️ ${scrapeData.players_errors.length} erreur(s)</span>` : ''}
+                        </div>
+                    `;
+                    detailContent.insertBefore(successMsg, detailContent.firstChild);
+                    
+                    // Supprimer le message après 5 secondes
+                    setTimeout(() => {
+                        successMsg.remove();
+                    }, 5000);
+                }
+                
+            } catch (e) {
+                console.error(`Erreur lors du scraping du club ${code}:`, e);
+                const detailContent = document.getElementById('detail-content');
+                if (detailContent) {
+                    const errorMsg = document.createElement('div');
+                    errorMsg.style.cssText = 'background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;';
+                    errorMsg.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <span style="font-size: 1.5rem;">❌</span>
+                            <strong style="color: var(--error);">Erreur lors du scraping</strong>
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                            ${e.message || 'Une erreur est survenue'}
+                        </div>
+                    `;
+                    detailContent.insertBefore(errorMsg, detailContent.firstChild);
+                    
+                    // Supprimer le message après 5 secondes
+                    setTimeout(() => {
+                        errorMsg.remove();
+                    }, 5000);
+                }
+            }
+        }
+
+        // Render Members
+        async function renderMembers(clubCode, filter = '') {
+            const content = document.getElementById('members-content');
+            
+            // Charger les joueurs du club depuis l'API
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/clubs/${clubCode}/players`);
+                if (!res.ok) {
+                    content.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 3rem;">
+                        Aucune donnée pour ce club. Assurez-vous que l'API est démarrée.
+                    </p>`;
+                    return;
+                }
+                
+                const data = await res.json();
+                const club = data.club || {};
+                const players = data.players || [];
+
+                const filtered = players.filter(p =>
+                    p.name?.toLowerCase().includes(filter.toLowerCase()) ||
+                    p.licence?.includes(filter) ||
+                    p.ranking?.toLowerCase().includes(filter.toLowerCase())
+                );
+
+                content.innerHTML = `
+                    <h2 style="margin-bottom: 1rem;">${club.name || clubCode} (${clubCode})</h2>
+                    <div class="data-grid">
+                        ${filtered.map(p => `
+                            <div class="card" onclick="showPlayerFromLicence('${p.licence}')">
+                                <div class="card-header">
+                                    <span class="card-badge">${p.ranking || ''}</span>
+                                    <span class="card-title">${p.name}</span>
+                                </div>
+                                <div class="card-stats">
+                                    <div class="card-stat">🎫 ${p.licence}</div>
+                                    <div class="card-stat">📊 ${p.category || ''}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (e) {
+                content.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 3rem;">
+                    Erreur lors du chargement. Assurez-vous que l'API est démarrée: python main.py api
+                </p>`;
+            }
+        }
+
+        // Render Players
+        function renderPlayers(filter = '') {
+            const grid = document.getElementById('players-grid');
+            const players = Object.values(state.players);
+            const filtered = players.filter(p =>
+                p.name?.toLowerCase().includes(filter.toLowerCase()) ||
+                p.licence?.includes(filter) ||
+                p.ranking?.toLowerCase().includes(filter.toLowerCase())
+            );
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 3rem;">
+                    Aucun joueur trouvé. Assurez-vous que l'API est démarrée.
+                </p>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(p => {
+                const evolution = p.points_current - p.points_start;
+                const evolutionClass = evolution >= 0 ? 'positive' : 'negative';
+                return `
+                    <div class="card" onclick="showPlayerDetail('${p.licence}')">
+                        <div class="card-header">
+                            <span class="card-badge">${p.ranking}</span>
+                            <span class="card-title">${p.name}</span>
+                        </div>
+                        <div class="card-subtitle">Licence: ${p.licence}</div>
+                        <div class="card-stats">
+                            <div class="card-stat">📊 ${p.points_current?.toFixed(1) || 0} pts</div>
+                            <div class="card-stat ${evolutionClass}">${evolution >= 0 ? '+' : ''}${evolution?.toFixed(1) || 0}</div>
+                            <div class="card-stat">🎯 ${p.total_wins || 0}V - ${p.total_losses || 0}D</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Show Player Detail
+        async function showPlayerDetail(licence) {
+            let player = state.players[licence];
+            
+            // Si le joueur n'est pas chargé ou n'a pas toutes les données, charger depuis l'API
+            if (!player || !player.stats_masculine) {
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/players/${licence}`);
+                    if (res.ok) {
+                        player = await res.json();
+                        state.players[licence] = player;
+                    } else {
+                        alert(`Joueur ${licence} non trouvé`);
+                        return;
+                    }
+                } catch (e) {
+                    console.error(`Erreur lors du chargement du joueur ${licence}:`, e);
+                    alert(`Erreur lors du chargement. Assurez-vous que l'API est démarrée.`);
+                    return;
+                }
+            }
+
+            const evolution = (player.points_current || 0) - (player.points_start || 0);
+            const evolutionClass = evolution >= 0 ? 'positive' : 'negative';
+
+            let content = `
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Licence</div>
+                        <div class="info-value">${player.licence}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Classement</div>
+                        <div class="info-value">${player.ranking || ''}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Points départ</div>
+                        <div class="info-value">${player.points_start?.toFixed(1) || 0} pts</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Points actuels</div>
+                        <div class="info-value">${player.points_current?.toFixed(1) || 0} pts</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Évolution</div>
+                        <div class="info-value ${evolutionClass}">${evolution >= 0 ? '+' : ''}${evolution?.toFixed(1)} pts</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Ranking</div>
+                        <div class="info-value">${player.ranking_position ? player.ranking_position + 'e' : 'N/A'}</div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 1.5rem 0 1rem;">Statistiques (Masculin)</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Victoires</div>
+                        <div class="info-value positive">${player.total_wins || 0}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Défaites</div>
+                        <div class="info-value negative">${player.total_losses || 0}</div>
+                    </div>
+                </div>
+            `;
+
+            // Stats par classement (depuis stats_masculine de l'API)
+            const statsMasculine = player.stats_masculine || [];
+            if (statsMasculine.length > 0) {
+                content += `
+                    <h3 style="margin: 1.5rem 0 1rem;">Stats par classement</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Classement</th><th>V</th><th>D</th><th>Ratio</th></tr>
+                        </thead>
+                        <tbody>
+                            ${statsMasculine.map(s => `
+                                <tr>
+                                    <td>${s.opponent_ranking}</td>
+                                    <td>${s.wins}</td>
+                                    <td>${s.losses}</td>
+                                    <td>${s.ratio?.toFixed(1) || 0}%</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            // Matchs masculins (depuis matches_masculine de l'API)
+            const matchesMasculine = player.matches_masculine || [];
+            if (matchesMasculine.length > 0) {
+                // Grouper les matchs par journée
+                const matchesByDay = {};
+                matchesMasculine.forEach(m => {
+                    const key = `${m.date || 'N/A'}|${m.division || ''}|${m.opponent_club || ''}`;
+                    if (!matchesByDay[key]) matchesByDay[key] = [];
+                    matchesByDay[key].push(m);
+                });
+
+                content += `<h3 style="margin: 1.5rem 0 1rem;">Matchs par journée</h3>`;
+                
+                Object.entries(matchesByDay).forEach(([key, matches]) => {
+                    const [date, division, club] = key.split('|');
+                    const wins = matches.filter(m => m.won).length;
+                    const losses = matches.length - wins;
+                    const totalPts = matches.reduce((acc, m) => acc + (m.points_change || 0), 0);
+                    
+                    content += `
+                        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                <div>
+                                    <span style="color: var(--accent-secondary); font-weight: 600;">📅 ${date}</span>
+                                    <span style="color: var(--text-muted); margin-left: 0.5rem;">${division}</span>
+                                </div>
+                                <div>
+                                    <span style="color: var(--success);">${wins}V</span>
+                                    <span style="color: var(--text-muted);">-</span>
+                                    <span style="color: var(--error);">${losses}D</span>
+                                    <span style="color: ${totalPts >= 0 ? 'var(--success)' : 'var(--error)'}; margin-left: 0.5rem;">
+                                        ${totalPts >= 0 ? '+' : ''}${totalPts.toFixed(1)} pts
+                                    </span>
+                                </div>
+                            </div>
+                            <div style="font-weight: 600; margin-bottom: 0.75rem;">vs ${club}</div>
+                            <table class="data-table" style="margin: 0;">
+                                <thead>
+                                    <tr><th>Score</th><th>Adversaire</th><th>Clt</th><th>Pts Adv</th><th>Gain</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${matches.map(m => `
+                                        <tr>
+                                            <td style="color: ${m.won ? 'var(--success)' : 'var(--error)'}; font-weight: 600;">${m.score}</td>
+                                            <td>${m.opponent_name}</td>
+                                            <td>${m.opponent_ranking}</td>
+                                            <td>${m.opponent_points ? m.opponent_points.toFixed(0) : ''}</td>
+                                            <td style="color: ${(m.points_change || 0) >= 0 ? 'var(--success)' : 'var(--error)'}">
+                                                ${m.points_change ? (m.points_change >= 0 ? '+' : '') + m.points_change.toFixed(1) : ''}
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                });
+            }
+
+            // Fiche féminine (depuis stats_feminine et matches_feminine de l'API)
+            const statsFeminine = player.stats_feminine || [];
+            const matchesFeminine = player.matches_feminine || [];
+            if (statsFeminine.length > 0 || matchesFeminine.length > 0 || player.women_points_current) {
+                content += `
+                    <h3 style="margin: 1.5rem 0 1rem; color: #ec4899;">📊 Fiche Féminine</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Points</div>
+                            <div class="info-value">${player.women_points_current?.toFixed(1) || 0} pts</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Bilan</div>
+                            <div class="info-value">${player.women_total_wins || 0}V - ${player.women_total_losses || 0}D</div>
+                        </div>
+                    </div>
+                `;
+
+                if (matchesFeminine.length > 0) {
+                    // Grouper les matchs féminins par journée
+                    const wMatchesByDay = {};
+                    matchesFeminine.forEach(m => {
+                        const key = `${m.date || 'N/A'}|${m.division || ''}|${m.opponent_club || ''}`;
+                        if (!wMatchesByDay[key]) wMatchesByDay[key] = [];
+                        wMatchesByDay[key].push(m);
+                    });
+                    
+                    Object.entries(wMatchesByDay).forEach(([key, matches]) => {
+                        const [date, division, club] = key.split('|');
+                        const wins = matches.filter(m => m.won).length;
+                        const losses = matches.length - wins;
+                        const totalPts = matches.reduce((acc, m) => acc + (m.points_change || 0), 0);
+                        
+                        content += `
+                            <div style="background: var(--bg-card); border: 1px solid #ec489920; border-radius: 10px; padding: 1rem; margin-bottom: 1rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                    <div>
+                                        <span style="color: #ec4899; font-weight: 600;">📅 ${date}</span>
+                                        <span style="color: var(--text-muted); margin-left: 0.5rem;">${division}</span>
+                                    </div>
+                                    <div>
+                                        <span style="color: var(--success);">${wins}V</span>
+                                        <span style="color: var(--text-muted);">-</span>
+                                        <span style="color: var(--error);">${losses}D</span>
+                                        <span style="color: ${totalPts >= 0 ? 'var(--success)' : 'var(--error)'}; margin-left: 0.5rem;">
+                                            ${totalPts >= 0 ? '+' : ''}${totalPts.toFixed(1)} pts
+                                        </span>
+                                    </div>
+                                </div>
+                                <div style="font-weight: 600; margin-bottom: 0.75rem;">vs ${club}</div>
+                                <table class="data-table" style="margin: 0;">
+                                    <thead>
+                                        <tr><th>Score</th><th>Adversaire</th><th>Clt</th><th>Pts Adv</th><th>Gain</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        ${matches.map(m => `
+                                            <tr>
+                                                <td style="color: ${m.won ? 'var(--success)' : 'var(--error)'}; font-weight: 600;">${m.score}</td>
+                                                <td>${m.opponent_name}</td>
+                                                <td>${m.opponent_ranking}</td>
+                                                <td>${m.opponent_points ? m.opponent_points.toFixed(0) : ''}</td>
+                                                <td style="color: ${(m.points_change || 0) >= 0 ? 'var(--success)' : 'var(--error)'}">
+                                                    ${m.points_change ? (m.points_change >= 0 ? '+' : '') + m.points_change.toFixed(1) : ''}
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                    });
+                }
+            }
+
+            content += `
+                <h3 style="margin: 1.5rem 0 1rem;">JSON brut</h3>
+                <div class="json-viewer"><pre>${syntaxHighlight(player)}</pre></div>
+            `;
+
+            openDetail(`${player.licence} - ${player.name}`, content);
+        }
+
+        async function showPlayerFromLicence(licence) {
+            await showPlayerDetail(licence);
+        }
+
+        // Load members for a club from API
+        async function loadClubMembers(clubCode) {
+            if (state.members[clubCode]) {
+                return; // Déjà chargé
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/clubs/${clubCode}/players`);
+                if (res.ok) {
+                    const data = await res.json();
+                    // Convertir le format de l'API en format attendu par l'interface
+                    state.members[clubCode] = {
+                        club_code: clubCode,
+                        club_name: data.club?.name || clubCode,
+                        members: (data.players || []).map(p => ({
+                            licence: p.licence,
+                            name: p.name,
+                            category: p.category,
+                            ranking: p.ranking
+                        }))
+                    };
+                    renderMembers(clubCode);
+                }
+            } catch (e) {
+                console.error(`Erreur lors du chargement des membres pour ${clubCode}:`, e);
+            }
+        }
+
+        // Search handlers
+        document.getElementById('clubs-search').addEventListener('input', (e) => {
+            if (state.viewMode === 'clubs') {
+                renderClubs(e.target.value);
+            }
+        });
+        
+        // Back button
+        document.getElementById('back-to-regions-btn').addEventListener('click', backToRegions);
+        
+        // Reload clubs button
+        document.getElementById('reload-clubs-btn').addEventListener('click', reloadClubsForSelectedRegion);
+        
+        // Region select change
+        document.getElementById('region-select').addEventListener('change', async (e) => {
+            const province = e.target.value;
+            if (province) {
+                await showProvinceClubs(province);
+            } else {
+                await backToRegions();
+            }
+        });
+        document.getElementById('members-search').addEventListener('input', async (e) => {
+            // Trouver le premier club sélectionné ou utiliser le premier club disponible
+            const selectedClub = state.clubs.find(c => state.members[c.code]);
+            if (selectedClub) {
+                await renderMembers(selectedClub.code, e.target.value);
+            } else if (state.clubs.length > 0) {
+                await renderMembers(state.clubs[0].code, e.target.value);
+            }
+        });
+        document.getElementById('players-search').addEventListener('input', (e) => renderPlayers(e.target.value));
+        
+        // Charger les membres quand on clique sur un club
+        document.addEventListener('click', async (e) => {
+            if (e.target.closest('.card') && state.currentSection === 'clubs') {
+                const card = e.target.closest('.card');
+                const onclick = card.getAttribute('onclick');
+                if (onclick && onclick.includes('showClubDetail')) {
+                    const match = onclick.match(/showClubDetail\('([^']+)'\)/);
+                    if (match) {
+                        const clubCode = match[1];
+                        // Si on est dans la section membres, charger les membres de ce club
+                        if (state.currentSection === 'members') {
+                            await renderMembers(clubCode);
+                        }
+                    }
+                }
+            }
+        });
+
+        // Auto-load from API
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        // Load provinces list
+        async function loadProvincesList() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/clubs/provinces`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const provinces = data.provinces || [];
+                    
+                    const select = document.getElementById('region-select');
+                    if (select) {
+                        select.innerHTML = '<option value="">Toutes les régions</option>';
+                        provinces.forEach(province => {
+                            const option = document.createElement('option');
+                            option.value = province;
+                            option.textContent = province;
+                            select.appendChild(option);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('Erreur lors du chargement des provinces:', e);
+            }
+        }
+        
+        // Load clubs for a province from API
+        async function loadClubsForProvince(province) {
+            try {
+                const url = province 
+                    ? `${API_BASE_URL}/api/clubs?province=${encodeURIComponent(province)}`
+                    : `${API_BASE_URL}/api/clubs`;
+                
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    state.clubs = data.clubs || data;
+                    console.log(`✅ ${state.clubs.length} clubs chargés${province ? ` pour ${province}` : ''}`);
+                    return true;
+                }
+            } catch (e) {
+                console.error(`Erreur lors du chargement des clubs pour ${province}:`, e);
+            }
+            return false;
+        }
+        async function loadFromAPI() {
+            try {
+                // Load provinces list
+                await loadProvincesList();
+                
+                // Load clubs (tous les clubs pour calculer les régions)
+                await loadClubsForProvince('');
+                renderRegions();
+
+                // Load players (on charge les premiers pour l'affichage)
+                const playersRes = await fetch(`${API_BASE_URL}/api/players?limit=500`);
+                if (playersRes.ok) {
+                    const playersData = await playersRes.json();
+                    const playersList = playersData.players || playersData;
+                    // Convertir la liste en objet indexé par licence
+                    playersList.forEach(player => {
+                        state.players[player.licence] = player;
+                    });
+                    renderPlayers();
+                }
+
+                // Pour les membres, on les charge à la demande quand un club est sélectionné
+                // via l'endpoint /api/clubs/{code}/players
+
+                await updateStats();
+                console.log('✅ Données chargées depuis l\'API FastAPI');
+            } catch (e) {
+                console.error('❌ Erreur lors du chargement depuis l\'API:', e);
+                console.log('ℹ️ Assurez-vous que l\'API est démarrée: python main.py api');
+            }
+        }
+
+        // Initial render
+        renderRegions();
+        renderPlayers();
+        
+        // Try to load from API (cela mettra à jour les stats)
+        loadFromAPI();
+    </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  aftt-api:
+    build: .
+    container_name: aftt-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - AFTT_DB_PATH=/app/data/aftt.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Service optionnel pour le scraping périodique
+  aftt-scraper:
+    build: .
+    container_name: aftt-scraper
+    volumes:
+      - ./data:/app/data
+    environment:
+      - AFTT_DB_PATH=/app/data/aftt.db
+    command: ["python", "main.py", "import"]
+    profiles:
+      - scraper

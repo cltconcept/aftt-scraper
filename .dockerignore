@@ -1,0 +1,49 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.cursor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Data locale (sera créé via volume)
+data/*.db
+data/*.json
+data/*.html
+data/*.txt
+
+# Tests et debug
+test_*.py
+debug_*.py
+check_*.py
+fix_*.py
+find_*.py
+
+# Documentation dev
+*.md
+documentation/
+
+# Terminals (Cursor)
+terminals/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

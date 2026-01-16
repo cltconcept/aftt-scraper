@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data locale
+data/*.db
+data/*.json
+data/*.html
+data/*.txt
+data/*.png
+
+# Tests et debug temporaires
+test_*.py
+debug_*.py
+check_*.py
+fix_*.py
+find_*.py
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Terminals (Cursor)
+terminals/

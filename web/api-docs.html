@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation API - AFTT Data Explorer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --bg-hover: #222230;
+            --accent-primary: #6366f1;
+            --accent-secondary: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: #2d2d3a;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .back-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .back-link:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        h2 {
+            color: var(--accent-secondary);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        h3 {
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .endpoint-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .method {
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .method.get {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .endpoint-path {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .description {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .params {
+            margin-top: 1rem;
+        }
+
+        .param-item {
+            display: flex;
+            gap: 1rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .param-name {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-secondary);
+            min-width: 150px;
+        }
+
+        .param-desc {
+            color: var(--text-secondary);
+            flex: 1;
+        }
+
+        code {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.2rem 0.4rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            color: var(--accent-secondary);
+        }
+
+        pre {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        pre code {
+            border: none;
+            padding: 0;
+            background: transparent;
+        }
+
+        .info-box {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid var(--accent-primary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .info-box strong {
+            color: var(--accent-secondary);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        table th,
+        table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        table th {
+            background: var(--bg-card);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        table tr:hover td {
+            background: var(--bg-hover);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>📚 Documentation API AFTT</h1>
+            <a href="index.html" class="back-link">← Retour</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="info-box">
+            <strong>Base URL :</strong> <code>http://localhost:8000</code><br>
+            <strong>Documentation Swagger interactive :</strong> <a href="http://localhost:8000/docs" target="_blank" style="color: var(--accent-secondary);">http://localhost:8000/docs</a><br>
+            <strong>Note :</strong> L'API doit être démarrée avec <code>python main.py api</code> pour être accessible.
+        </div>
+
+        <h2>Santé & Stats</h2>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/</span>
+            </div>
+            <div class="description">Page d'accueil avec liste des endpoints</div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/health</span>
+            </div>
+            <div class="description">Vérification de l'état de l'API</div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/stats</span>
+            </div>
+            <div class="description">Statistiques de la base de données</div>
+        </div>
+
+        <h2>Clubs</h2>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/clubs</span>
+            </div>
+            <div class="description">Liste tous les clubs</div>
+            <div class="params">
+                <div class="param-item">
+                    <span class="param-name">province</span>
+                    <span class="param-desc">Filtrer par province (optionnel)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">limit</span>
+                    <span class="param-desc">Nombre max de résultats (1-1000, optionnel)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">offset</span>
+                    <span class="param-desc">Offset pour pagination (défaut: 0)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/clubs/provinces</span>
+            </div>
+            <div class="description">Liste toutes les provinces disponibles</div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/clubs/{code}</span>
+            </div>
+            <div class="description">Détails d'un club par son code</div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/clubs/{code}/players</span>
+            </div>
+            <div class="description">Joueurs d'un club</div>
+        </div>
+
+        <h2>Joueurs</h2>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/players</span>
+            </div>
+            <div class="description">Liste des joueurs avec filtres</div>
+            <div class="params">
+                <div class="param-item">
+                    <span class="param-name">club_code</span>
+                    <span class="param-desc">Filtrer par club (optionnel)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">ranking</span>
+                    <span class="param-desc">Filtrer par classement (optionnel)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">min_points</span>
+                    <span class="param-desc">Points minimum (optionnel)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">max_points</span>
+                    <span class="param-desc">Points maximum (optionnel)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">search</span>
+                    <span class="param-desc">Recherche par nom/licence (optionnel)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">order_by</span>
+                    <span class="param-desc">Tri (défaut: "points_current DESC")</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">limit</span>
+                    <span class="param-desc">Nombre max de résultats (défaut: 100, max: 1000)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">offset</span>
+                    <span class="param-desc">Offset pour pagination (défaut: 0)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/players/{licence}</span>
+            </div>
+            <div class="description">Fiche complète d'un joueur</div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/players/{licence}/matches</span>
+            </div>
+            <div class="description">Matchs d'un joueur</div>
+            <div class="params">
+                <div class="param-item">
+                    <span class="param-name">fiche_type</span>
+                    <span class="param-desc">"masculine" ou "feminine" (optionnel)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">opponent</span>
+                    <span class="param-desc">Licence de l'adversaire (optionnel)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">limit</span>
+                    <span class="param-desc">Nombre max (max: 500, optionnel)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/players/{licence1}/vs/{licence2}</span>
+            </div>
+            <div class="description">Head-to-head entre 2 joueurs</div>
+        </div>
+
+        <h2>Classements</h2>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/rankings/top</span>
+            </div>
+            <div class="description">Top joueurs</div>
+            <div class="params">
+                <div class="param-item">
+                    <span class="param-name">limit</span>
+                    <span class="param-desc">Nombre de joueurs (défaut: 100, max: 500)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">province</span>
+                    <span class="param-desc">Filtrer par province (optionnel)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">club_code</span>
+                    <span class="param-desc">Filtrer par club (optionnel)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">ranking</span>
+                    <span class="param-desc">Filtrer par classement (optionnel)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/rankings/progressions</span>
+            </div>
+            <div class="description">Meilleures progressions de la saison</div>
+            <div class="params">
+                <div class="param-item">
+                    <span class="param-name">limit</span>
+                    <span class="param-desc">Nombre de joueurs (défaut: 100, max: 500)</span>
+                </div>
+            </div>
+        </div>
+
+        <h2>Recherche</h2>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/search</span>
+            </div>
+            <div class="description">Recherche de joueurs par nom ou licence</div>
+            <div class="params">
+                <div class="param-item">
+                    <span class="param-name">q</span>
+                    <span class="param-desc">Terme de recherche (minimum 2 caractères, requis)</span>
+                </div>
+                <div class="param-item">
+                    <span class="param-name">limit</span>
+                    <span class="param-desc">Nombre max de résultats (défaut: 50, max: 200)</span>
+                </div>
+            </div>
+        </div>
+
+        <h2>Exemples d'utilisation</h2>
+
+        <h3>Liste des clubs du Hainaut</h3>
+        <pre><code>curl "http://localhost:8000/api/clubs?province=Hainaut"</code></pre>
+
+        <h3>Fiche complète d'un joueur</h3>
+        <pre><code>curl "http://localhost:8000/api/players/152174"</code></pre>
+
+        <h3>Confrontations entre 2 joueurs</h3>
+        <pre><code>curl "http://localhost:8000/api/players/152174/vs/101452"</code></pre>
+
+        <h3>Top 10 des joueurs du Hainaut</h3>
+        <pre><code>curl "http://localhost:8000/api/rankings/top?limit=10&province=Hainaut"</code></pre>
+
+        <h3>Recherche</h3>
+        <pre><code>curl "http://localhost:8000/api/search?q=BRULEZ"</code></pre>
+
+        <h2>Lancement de l'API</h2>
+
+        <div class="info-box">
+            <strong>Pour démarrer l'API :</strong><br>
+            <pre style="margin-top: 0.5rem;"><code>python main.py api</code></pre>
+            <p style="margin-top: 1rem; margin-bottom: 0;">L'API sera accessible sur <code>http://localhost:8000</code></p>
+            <p style="margin-top: 0.5rem;">La documentation Swagger interactive sera disponible sur <code>http://localhost:8000/docs</code></p>
+        </div>
+    </div>
+</body>
+</html>

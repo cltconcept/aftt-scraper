@@ -1,0 +1,173 @@
+"""
+Modèles de données pour la base SQLite AFTT
+"""
+from dataclasses import dataclass, field
+from typing import Optional, List
+from datetime import date
+
+
+@dataclass
+class Club:
+    """Représente un club de tennis de table."""
+    code: str
+    name: str
+    province: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    status: Optional[str] = None
+    website: Optional[str] = None
+    has_shower: Optional[bool] = None
+    venue_name: Optional[str] = None
+    venue_address: Optional[str] = None
+    venue_phone: Optional[str] = None
+    venue_pmr: Optional[bool] = None
+    venue_remarks: Optional[str] = None
+    teams_men: int = 0
+    teams_women: int = 0
+    teams_youth: int = 0
+    teams_veterans: int = 0
+    label: Optional[str] = None
+    palette: Optional[str] = None
+
+
+@dataclass
+class Player:
+    """Représente un joueur."""
+    licence: str
+    name: str
+    club_code: Optional[str] = None
+    ranking: Optional[str] = None
+    category: Optional[str] = None  # S, J, V, etc.
+    points_start: Optional[float] = None
+    points_current: Optional[float] = None
+    ranking_position: Optional[int] = None
+    total_wins: int = 0
+    total_losses: int = 0
+    # Stats féminines (si applicable)
+    women_points_start: Optional[float] = None
+    women_points_current: Optional[float] = None
+    women_total_wins: int = 0
+    women_total_losses: int = 0
+    last_update: Optional[str] = None
+
+
+@dataclass
+class Match:
+    """Représente un match individuel."""
+    id: Optional[int] = None
+    player_licence: str = ""
+    fiche_type: str = "masculine"  # "masculine" ou "feminine"
+    date: Optional[str] = None
+    division: Optional[str] = None
+    opponent_club: Optional[str] = None
+    opponent_name: str = ""
+    opponent_licence: Optional[str] = None
+    opponent_ranking: Optional[str] = None
+    opponent_points: Optional[float] = None
+    score: str = ""
+    won: bool = False
+    points_change: Optional[float] = None
+
+
+@dataclass
+class PlayerStats:
+    """Statistiques par classement adverse."""
+    id: Optional[int] = None
+    player_licence: str = ""
+    fiche_type: str = "masculine"
+    opponent_ranking: str = ""
+    wins: int = 0
+    losses: int = 0
+    ratio: float = 0.0
+
+
+# SQL pour créer les tables
+CREATE_TABLES_SQL = """
+-- Table des clubs
+CREATE TABLE IF NOT EXISTS clubs (
+    code TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    province TEXT,
+    full_name TEXT,
+    email TEXT,
+    phone TEXT,
+    status TEXT,
+    website TEXT,
+    has_shower BOOLEAN,
+    venue_name TEXT,
+    venue_address TEXT,
+    venue_phone TEXT,
+    venue_pmr BOOLEAN,
+    venue_remarks TEXT,
+    teams_men INTEGER DEFAULT 0,
+    teams_women INTEGER DEFAULT 0,
+    teams_youth INTEGER DEFAULT 0,
+    teams_veterans INTEGER DEFAULT 0,
+    label TEXT,
+    palette TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table des joueurs
+CREATE TABLE IF NOT EXISTS players (
+    licence TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    club_code TEXT REFERENCES clubs(code),
+    ranking TEXT,
+    category TEXT,
+    points_start REAL,
+    points_current REAL,
+    ranking_position INTEGER,
+    total_wins INTEGER DEFAULT 0,
+    total_losses INTEGER DEFAULT 0,
+    women_points_start REAL,
+    women_points_current REAL,
+    women_total_wins INTEGER DEFAULT 0,
+    women_total_losses INTEGER DEFAULT 0,
+    last_update TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table des matchs
+CREATE TABLE IF NOT EXISTS matches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_licence TEXT NOT NULL REFERENCES players(licence),
+    fiche_type TEXT DEFAULT 'masculine',
+    date TEXT,
+    division TEXT,
+    opponent_club TEXT,
+    opponent_name TEXT NOT NULL,
+    opponent_licence TEXT,
+    opponent_ranking TEXT,
+    opponent_points REAL,
+    score TEXT,
+    won BOOLEAN,
+    points_change REAL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(player_licence, fiche_type, date, opponent_licence, score)
+);
+
+-- Table des statistiques par classement
+CREATE TABLE IF NOT EXISTS player_stats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_licence TEXT NOT NULL REFERENCES players(licence),
+    fiche_type TEXT DEFAULT 'masculine',
+    opponent_ranking TEXT NOT NULL,
+    wins INTEGER DEFAULT 0,
+    losses INTEGER DEFAULT 0,
+    ratio REAL DEFAULT 0.0,
+    UNIQUE(player_licence, fiche_type, opponent_ranking)
+);
+
+-- Index pour les recherches fréquentes
+CREATE INDEX IF NOT EXISTS idx_players_club ON players(club_code);
+CREATE INDEX IF NOT EXISTS idx_players_ranking ON players(ranking);
+CREATE INDEX IF NOT EXISTS idx_players_points ON players(points_current);
+CREATE INDEX IF NOT EXISTS idx_matches_player ON matches(player_licence);
+CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date);
+CREATE INDEX IF NOT EXISTS idx_matches_opponent ON matches(opponent_licence);
+CREATE INDEX IF NOT EXISTS idx_clubs_province ON clubs(province);
+"""
