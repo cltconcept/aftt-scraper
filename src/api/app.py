@@ -20,9 +20,37 @@ from src.scraper.player_scraper import get_player_info
 from src.scraper.clubs_scraper import get_all_clubs
 from src.scraper.ranking_scraper import get_club_ranking_players_async
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Initialiser la base de données
 init_database()
+
+# Charger les clubs si la base est vide
+def init_clubs_if_empty():
+    """Charge la liste des clubs depuis le site AFTT si la base est vide."""
+    try:
+        stats = get_stats()
+        if stats.get('clubs', 0) == 0:
+            logger.info("Base de données vide, chargement des clubs...")
+            print("[INIT] Base de données vide, chargement des clubs depuis AFTT...")
+            clubs = get_all_clubs()
+            for club in clubs:
+                club_dict = {
+                    'code': club.code,
+                    'name': club.name,
+                    'province': club.province
+                }
+                queries.insert_club(club_dict)
+            print(f"[INIT] {len(clubs)} clubs chargés !")
+            logger.info(f"{len(clubs)} clubs chargés")
+    except Exception as e:
+        logger.error(f"Erreur lors du chargement initial des clubs: {e}")
+        print(f"[INIT] Erreur: {e}")
+
+# Initialiser les clubs au démarrage
+init_clubs_if_empty()
 
 # Chemin vers le dossier web
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'web')
