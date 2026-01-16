@@ -1,7 +1,7 @@
 """
 API FastAPI pour les données AFTT
 """
-from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -829,7 +829,6 @@ async def run_full_scrape(task_id: int, trigger_type: str):
 
 @app.post("/api/scrape/all", tags=["Scraping"])
 async def start_full_scrape(
-    background_tasks: BackgroundTasks,
     trigger: str = Query("manual", description="Type de déclencheur (manual, cron)")
 ):
     """
@@ -856,8 +855,8 @@ async def start_full_scrape(
     # Créer la tâche
     task_id = queries.create_scrape_task(trigger_type=trigger, total_clubs=total_clubs)
     
-    # Lancer en arrière-plan
-    background_tasks.add_task(run_full_scrape, task_id, trigger)
+    # Lancer en arrière-plan avec asyncio.create_task (coroutine async)
+    asyncio.create_task(run_full_scrape(task_id, trigger))
     
     return {
         "status": "started",
@@ -928,6 +927,28 @@ async def get_scrape_history(
         "count": len(tasks),
         "tasks": tasks
     }
+
+
+@app.get("/api/scrape/task/{task_id}", tags=["Scraping"])
+async def get_scrape_task_detail(task_id: int):
+    """
+    Récupère les détails d'une tâche de scraping par son ID.
+    """
+    task = queries.get_scrape_task_by_id(task_id)
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="Tâche non trouvée")
+    
+    # Parser les erreurs si présentes
+    if task.get('errors_detail'):
+        try:
+            task['errors_list'] = json_lib.loads(task['errors_detail'])
+        except:
+            task['errors_list'] = []
+    else:
+        task['errors_list'] = []
+    
+    return task
 
 
 @app.post("/api/scrape/cancel", tags=["Scraping"])
