@@ -761,24 +761,26 @@
 
         // Update Stats
         async function updateStats() {
-            // Clubs : nombre chargé dans state
-            document.getElementById('stat-clubs').textContent = state.clubs.length;
-            
-            // Joueurs : nombre chargé dans state
-            document.getElementById('stat-players').textContent = Object.keys(state.players).length;
-            
-            // Membres : nombre de joueurs avec des statistiques (matchs) dans la base de données
             try {
                 const statsRes = await fetch(`${API_BASE_URL}/api/stats`);
                 if (statsRes.ok) {
                     const stats = await statsRes.json();
-                    document.getElementById('stat-members').textContent = stats.players_with_matches || 0;
+                    // Clubs : nombre total dans la DB
+                    document.getElementById('stat-clubs').textContent = stats.clubs || state.clubs.length;
+                    // Joueurs : nombre total dans la DB
+                    document.getElementById('stat-players').textContent = (stats.players || 0).toLocaleString();
+                    // Membres : joueurs avec des fiches/matchs
+                    document.getElementById('stat-members').textContent = (stats.players_with_matches || 0).toLocaleString();
                 } else {
-                    // Fallback : utiliser le nombre de joueurs chargés
+                    // Fallback : utiliser les données locales
+                    document.getElementById('stat-clubs').textContent = state.clubs.length;
+                    document.getElementById('stat-players').textContent = Object.keys(state.players).length;
                     document.getElementById('stat-members').textContent = Object.keys(state.players).length;
                 }
             } catch (e) {
-                // En cas d'erreur, utiliser le nombre de joueurs chargés
+                // En cas d'erreur, utiliser les données locales
+                document.getElementById('stat-clubs').textContent = state.clubs.length;
+                document.getElementById('stat-players').textContent = Object.keys(state.players).length;
                 document.getElementById('stat-members').textContent = Object.keys(state.players).length;
             }
         }
