@@ -50,11 +50,11 @@ COPY . .
 # Créer le dossier data
 RUN mkdir -p /app/data
 
-# Exposer le port de l'API
-EXPOSE 8000
+# Exposer les ports possibles (8000 local, 3000 Coolify)
+EXPOSE 8000 3000
 
 # Volume pour persister les données
 VOLUME ["/app/data"]
 
-# Commande par défaut: lancer l'API
-CMD ["python", "main.py", "api", "--host", "0.0.0.0", "--port", "8000"]
+# Commande par défaut: lancer l'API (utilise la variable PORT si définie)
+CMD ["python", "main.py", "api"]

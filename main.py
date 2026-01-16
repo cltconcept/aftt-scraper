@@ -187,9 +187,9 @@ def run():
         import_to_database()
     
     elif args[0] == "api":
-        # Parser les arguments
-        port = 8000
-        host = "0.0.0.0"
+        # Parser les arguments (variable d'env PORT prioritaire pour Coolify/Docker)
+        port = int(os.environ.get("PORT", 8000))
+        host = os.environ.get("HOST", "0.0.0.0")
         
         for i, arg in enumerate(args):
             if arg == "--port" and i + 1 < len(args):
