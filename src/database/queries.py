@@ -468,6 +468,7 @@ def create_scrape_task(trigger_type: str = "manual", total_clubs: int = 0) -> in
 def update_scrape_task(
     task_id: int,
     completed_clubs: int = None,
+    total_clubs: int = None,
     total_players: int = None,
     current_club: str = None,
     current_province: str = None,
@@ -482,6 +483,9 @@ def update_scrape_task(
     if completed_clubs is not None:
         updates.append("completed_clubs = ?")
         values.append(completed_clubs)
+    if total_clubs is not None:
+        updates.append("total_clubs = ?")
+        values.append(total_clubs)
     if total_players is not None:
         updates.append("total_players = ?")
         values.append(total_players)
