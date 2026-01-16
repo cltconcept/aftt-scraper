@@ -1668,54 +1668,6 @@
             }
         }
 
-        // Render Members
-        async function renderMembers(clubCode, filter = '') {
-            const content = document.getElementById('members-content');
-            
-            // Charger les joueurs du club depuis l'API
-            try {
-                const res = await fetch(`${API_BASE_URL}/api/clubs/${clubCode}/players`);
-                if (!res.ok) {
-                    content.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 3rem;">
-                        Aucune donnée pour ce club. Assurez-vous que l'API est démarrée.
-                    </p>`;
-                    return;
-                }
-                
-                const data = await res.json();
-                const club = data.club || {};
-                const players = data.players || [];
-
-                const filtered = players.filter(p =>
-                    p.name?.toLowerCase().includes(filter.toLowerCase()) ||
-                    p.licence?.includes(filter) ||
-                    p.ranking?.toLowerCase().includes(filter.toLowerCase())
-                );
-
-                content.innerHTML = `
-                    <h2 style="margin-bottom: 1rem;">${club.name || clubCode} (${clubCode})</h2>
-                    <div class="data-grid">
-                        ${filtered.map(p => `
-                            <div class="card" onclick="showPlayerFromLicence('${p.licence}')">
-                                <div class="card-header">
-                                    <span class="card-badge">${p.ranking || ''}</span>
-                                    <span class="card-title">${p.name}</span>
-                                </div>
-                                <div class="card-stats">
-                                    <div class="card-stat">🎫 ${p.licence}</div>
-                                    <div class="card-stat">📊 ${p.category || ''}</div>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-            } catch (e) {
-                content.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 3rem;">
-                    Erreur lors du chargement. Assurez-vous que l'API est démarrée: python main.py api
-                </p>`;
-            }
-        }
-
         // Render Players
         function renderPlayers(filter = '') {
             const grid = document.getElementById('players-grid');
@@ -2008,7 +1960,6 @@
                             ranking: p.ranking
                         }))
                     };
-                    renderMembers(clubCode);
                 }
             } catch (e) {
                 console.error(`Erreur lors du chargement des membres pour ${clubCode}:`, e);
@@ -2037,34 +1988,11 @@
                 await backToRegions();
             }
         });
-        document.getElementById('members-search').addEventListener('input', async (e) => {
-            // Trouver le premier club sélectionné ou utiliser le premier club disponible
-            const selectedClub = state.clubs.find(c => state.members[c.code]);
-            if (selectedClub) {
-                await renderMembers(selectedClub.code, e.target.value);
-            } else if (state.clubs.length > 0) {
-                await renderMembers(state.clubs[0].code, e.target.value);
-            }
-        });
         document.getElementById('players-search').addEventListener('input', (e) => renderPlayers(e.target.value));
         
         // Charger les membres quand on clique sur un club
         document.addEventListener('click', async (e) => {
-            if (e.target.closest('.card') && state.currentSection === 'clubs') {
-                const card = e.target.closest('.card');
-                const onclick = card.getAttribute('onclick');
-                if (onclick && onclick.includes('showClubDetail')) {
-                    const match = onclick.match(/showClubDetail\('([^']+)'\)/);
-                    if (match) {
-                        const clubCode = match[1];
-                        // Si on est dans la section membres, charger les membres de ce club
-                        if (state.currentSection === 'members') {
-                            await renderMembers(clubCode);
-                        }
-                    }
-                }
-            }
-        });
+            });
 
         // Load provinces list
         async function loadProvincesList() {
