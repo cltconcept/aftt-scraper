@@ -656,6 +656,9 @@
     </div>
 
     <script>
+        // API Base URL - Détecter automatiquement (fonctionne en local et en production)
+        const API_BASE_URL = window.location.origin;
+        
         // State
         const state = {
             clubs: [],
@@ -2063,10 +2066,6 @@
             }
         });
 
-        // Auto-load from API
-        // Détecter automatiquement l'URL de base (fonctionne en local et en production)
-        const API_BASE_URL = window.location.origin;
-        
         // Load provinces list
         async function loadProvincesList() {
             try {
