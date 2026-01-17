@@ -746,6 +746,19 @@
                     <div id="current-task-content">
                         <p style="color: var(--text-muted);">Aucun scraping en cours</p>
                     </div>
+                    
+                    <!-- Terminal de logs -->
+                    <div id="scrape-terminal-container" style="display: none; margin-top: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <h4 style="font-size: 0.9rem; color: var(--text-secondary);">📺 Terminal</h4>
+                            <button onclick="toggleTerminal()" class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">
+                                <span id="terminal-toggle-text">▼ Réduire</span>
+                            </button>
+                        </div>
+                        <div id="scrape-terminal" style="background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto; color: var(--text-primary);">
+                            <div style="color: var(--text-muted);">En attente des logs...</div>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Historique -->
@@ -2192,6 +2205,9 @@
         // =============================================================================
         
         let scrapeStatusInterval = null;
+        let scrapeLogsInterval = null;
+        let terminalExpanded = true;
+        let lastLogCount = 0;
         
         async function startFullScrape() {
             if (!confirm('🚀 Lancer le scraping complet de tous les clubs ?\n\nCette opération peut prendre 2-3 heures.')) {
@@ -2204,12 +2220,15 @@
                 
                 if (res.ok) {
                     showToast(`✅ Scraping lancé: ${data.total_clubs} clubs`, 'success');
+                    lastLogCount = 0;
                     startScrapeStatusPolling();
                     loadScrapeStatus();
                 } else {
                     if (data.detail?.task_id) {
                         showToast(`⚠️ Scraping déjà en cours (tâche #${data.detail.task_id})`, 'info');
+                        lastLogCount = 0;
                         startScrapeStatusPolling();
+                        loadScrapeStatus();
                     } else {
                         showToast(`❌ Erreur: ${data.detail || 'Erreur inconnue'}`, 'error');
                     }
@@ -2255,6 +2274,17 @@
                 if (data.running) {
                     btn.style.display = 'none';
                     startScrapeStatusPolling();
+                    
+                    // Démarrer le polling des logs
+                    if (data.task_id) {
+                        startScrapeLogsPolling(data.task_id);
+                    }
+                    
+                    // Afficher le terminal
+                    const terminalContainer = document.getElementById('scrape-terminal-container');
+                    if (terminalContainer) {
+                        terminalContainer.style.display = 'block';
+                    }
                     
                     container.innerHTML = `
                         <div style="background: var(--bg-secondary); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
@@ -2305,6 +2335,14 @@
                 } else {
                     btn.style.display = 'inline-flex';
                     stopScrapeStatusPolling();
+                    stopScrapeLogsPolling();
+                    
+                    // Masquer le terminal
+                    const terminalContainer = document.getElementById('scrape-terminal-container');
+                    if (terminalContainer) {
+                        terminalContainer.style.display = 'none';
+                    }
+                    
                     container.innerHTML = `<p style="color: var(--text-muted);">Aucun scraping en cours</p>`;
                 }
             } catch (e) {
@@ -2321,6 +2359,86 @@
             if (scrapeStatusInterval) {
                 clearInterval(scrapeStatusInterval);
                 scrapeStatusInterval = null;
+            }
+        }
+        
+        async function loadScrapeLogs(taskId) {
+            const terminal = document.getElementById('scrape-terminal');
+            if (!terminal) return;
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/scrape/logs/${taskId}`);
+                const data = await res.json();
+                
+                if (data.logs && data.logs.length > 0) {
+                    // Ne mettre à jour que si de nouveaux logs sont arrivés
+                    if (data.logs.length > lastLogCount) {
+                        const logsHtml = data.logs.map(log => {
+                            let color = 'var(--text-primary)';
+                            let icon = '';
+                            
+                            if (log.message.includes('✅')) {
+                                color = 'var(--success)';
+                                icon = '✅';
+                            } else if (log.message.includes('❌')) {
+                                color = 'var(--danger)';
+                                icon = '❌';
+                            } else if (log.message.includes('WARNING')) {
+                                color = 'var(--warning)';
+                                icon = '⚠️';
+                            } else if (log.message.includes('[SCRAPE]')) {
+                                color = 'var(--accent)';
+                            }
+                            
+                            return `<div style="color: ${color}; margin-bottom: 0.25rem;">
+                                <span style="color: var(--text-muted);">[${log.timestamp}]</span> ${icon} ${log.message}
+                            </div>`;
+                        }).join('');
+                        
+                        terminal.innerHTML = logsHtml;
+                        lastLogCount = data.logs.length;
+                        
+                        // Auto-scroll vers le bas si le terminal est étendu
+                        if (terminalExpanded) {
+                            terminal.scrollTop = terminal.scrollHeight;
+                        }
+                    }
+                }
+            } catch (e) {
+                // Erreur silencieuse pour ne pas polluer la console
+            }
+        }
+        
+        function startScrapeLogsPolling(taskId) {
+            if (scrapeLogsInterval) return;
+            lastLogCount = 0;
+            scrapeLogsInterval = setInterval(() => {
+                loadScrapeLogs(taskId);
+            }, 2000); // Rafraîchir toutes les 2 secondes
+        }
+        
+        function stopScrapeLogsPolling() {
+            if (scrapeLogsInterval) {
+                clearInterval(scrapeLogsInterval);
+                scrapeLogsInterval = null;
+            }
+            lastLogCount = 0;
+        }
+        
+        function toggleTerminal() {
+            const terminal = document.getElementById('scrape-terminal');
+            const toggleText = document.getElementById('terminal-toggle-text');
+            
+            if (!terminal || !toggleText) return;
+            
+            terminalExpanded = !terminalExpanded;
+            
+            if (terminalExpanded) {
+                terminal.style.maxHeight = '400px';
+                toggleText.textContent = '▼ Réduire';
+            } else {
+                terminal.style.maxHeight = '100px';
+                toggleText.textContent = '▲ Agrandir';
             }
         }
         

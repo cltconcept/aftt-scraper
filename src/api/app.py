@@ -746,12 +746,33 @@ async def search(
 # Variable globale pour suivre la tâche en cours
 _current_task_id = None
 
+# Stockage des logs par task_id
+_scrape_logs = {}  # {task_id: [{"timestamp": "...", "message": "..."}, ...]}
+
+def _add_log(task_id: int, message: str):
+    """Ajoute un log pour une tâche."""
+    if task_id not in _scrape_logs:
+        _scrape_logs[task_id] = []
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    _scrape_logs[task_id].append({
+        "timestamp": timestamp,
+        "message": message
+    })
+    # Garder seulement les 1000 derniers logs par tâche
+    if len(_scrape_logs[task_id]) > 1000:
+        _scrape_logs[task_id] = _scrape_logs[task_id][-1000:]
+    # Afficher aussi dans la console
+    print(message)
+
 async def run_full_scrape(task_id: int, trigger_type: str):
     """Exécute le scraping complet en arrière-plan."""
     global _current_task_id
     _current_task_id = task_id
     
-    print(f"[SCRAPE] Démarrage tâche #{task_id} (trigger: {trigger_type})")
+    # Initialiser les logs pour cette tâche
+    _scrape_logs[task_id] = []
+    
+    _add_log(task_id, f"[SCRAPE] Démarrage tâche #{task_id} (trigger: {trigger_type})")
     
     try:
         # 1. Récupérer tous les clubs
@@ -759,7 +780,7 @@ async def run_full_scrape(task_id: int, trigger_type: str):
         total_clubs = len(all_clubs)
         
         queries.update_scrape_task(task_id, total_clubs=total_clubs if total_clubs else 0)
-        print(f"[SCRAPE] {total_clubs} clubs à traiter")
+        _add_log(task_id, f"[SCRAPE] {total_clubs} clubs à traiter")
         
         # Organiser par province
         clubs_by_province = {}
@@ -848,7 +869,7 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                                 }
                     except Exception as e:
                         # Si le scraping ranking échoue, continuer avec les membres classiques
-                        print(f"[WARNING] Erreur ranking_scraper pour {code}: {e}")
+                        _add_log(task_id, f"[WARNING] Erreur ranking_scraper pour {code}: {e}")
                     
                     # 3. Enrichir avec les données de l'annuaire (pour les catégories)
                     for member in members_list:
@@ -874,6 +895,7 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                     total_players += len(all_players)
                     
                     # 5. Scraper les fiches de tous les joueurs du club
+                    players_scraped = 0
                     for licence, player_data in all_players.items():
                         if not licence:
                             continue
@@ -893,16 +915,17 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                                 'category': player_data.get('category', 'SEN'),
                             }
                             queries.insert_player(updated_data)
+                            players_scraped += 1
                         except Exception as e:
                             # Erreur sur une fiche individuelle, continuer
-                            pass
+                            _add_log(task_id, f"[WARNING] Erreur fiche joueur {licence}: {str(e)[:100]}")
                     
-                    print(f"[SCRAPE] ✅ {code} - {len(all_players)} joueurs total")
+                    _add_log(task_id, f"[SCRAPE] ✅ {code} - {len(all_players)} joueurs, {players_scraped} fiches scrapées")
                     
                 except Exception as e:
                     error_msg = f"{code}: {str(e)}"
                     errors.append(error_msg)
-                    print(f"[SCRAPE] ❌ {code}: {e}")
+                    _add_log(task_id, f"[SCRAPE] ❌ {code}: {e}")
                 
                 completed += 1
                 
@@ -921,10 +944,10 @@ async def run_full_scrape(task_id: int, trigger_type: str):
             current_province=None
         )
         
-        print(f"[SCRAPE] ✅ Tâche #{task_id} terminée: {completed} clubs, {total_players} joueurs, {len(errors)} erreurs")
+        _add_log(task_id, f"[SCRAPE] ✅ Tâche #{task_id} terminée: {completed} clubs, {total_players} joueurs, {len(errors)} erreurs")
         
     except Exception as e:
-        print(f"[SCRAPE] ❌ Tâche #{task_id} échouée: {e}")
+        _add_log(task_id, f"[SCRAPE] ❌ Tâche #{task_id} échouée: {e}")
         queries.update_scrape_task(
             task_id,
             status='failed',
@@ -932,6 +955,8 @@ async def run_full_scrape(task_id: int, trigger_type: str):
         )
     finally:
         _current_task_id = None
+        # Nettoyer les logs après 1 heure (garder pour consultation)
+        # Les logs seront supprimés automatiquement après un certain temps si nécessaire
 
 
 @app.post("/api/scrape/all", tags=["Scraping"])
@@ -1006,6 +1031,23 @@ async def get_scrape_status():
         "current_province": current['current_province'],
         "errors_count": current['errors_count'],
         "progress_percent": round((current['completed_clubs'] / current['total_clubs'] * 100), 1) if current['total_clubs'] > 0 else 0
+    }
+
+
+@app.get("/api/scrape/logs/{task_id}", tags=["Scraping"])
+async def get_scrape_logs(task_id: int):
+    """
+    Récupère les logs d'une tâche de scraping.
+    """
+    if task_id not in _scrape_logs:
+        return {
+            "task_id": task_id,
+            "logs": []
+        }
+    
+    return {
+        "task_id": task_id,
+        "logs": _scrape_logs[task_id]
     }
 
 
