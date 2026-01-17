@@ -791,47 +791,66 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                 try:
                     # Scraper les membres
                     members_data = get_club_members(code)
-                    members_list = members_data.get('members', []) if isinstance(members_data, dict) else []
+                    members_list = members_data.get('members', [])
                     
-                    if members_list:
-                        for member in members_list:
-                            # Vérifier que member est un dictionnaire
-                            if not isinstance(member, dict):
-                                continue
-                            player_data = {
-                                'licence': member.get('licence'),
-                                'name': member.get('name', ''),
-                                'club_code': code,
-                                'ranking': member.get('ranking'),
-                                'category': member.get('category')
-                            }
-                            if player_data['licence']:
-                                queries.insert_player(player_data)
-                    
-                    # Scraper depuis la page ranking
+                    # Scraper depuis la page ranking (comme dans scrape_club qui fonctionne)
                     ranking_data = await get_club_ranking_players_async(code)
                     
+                    # Traiter les joueurs du ranking (comme dans scrape_club)
                     if ranking_data:
-                        # Combiner les joueurs messieurs et dames
-                        all_ranking_players = []
-                        if isinstance(ranking_data, dict):
-                            all_ranking_players.extend(ranking_data.get('players_men', []))
-                            all_ranking_players.extend(ranking_data.get('players_women', []))
-                        
-                        for player in all_ranking_players:
-                            if isinstance(player, dict):
+                        # Ajouter les joueurs messieurs
+                        for player in ranking_data.get('players_men', []):
+                            licence = player.get('licence')
+                            if licence:
                                 player_data = {
-                                    'licence': player.get('licence'),
+                                    'licence': licence,
                                     'name': player.get('name', ''),
                                     'club_code': code,
                                     'ranking': player.get('ranking'),
-                                    'points_current': player.get('points')
+                                    'points_current': player.get('points'),
+                                    'category': 'SEN',  # Par défaut
                                 }
-                                if player_data['licence']:
-                                    queries.insert_player(player_data)
-                        total_players += len(all_ranking_players)
-                    elif members_list:
-                        total_players += len(members_list)
+                                queries.insert_player(player_data)
+                                total_players += 1
+                        
+                        # Ajouter les joueuses
+                        for player in ranking_data.get('players_women', []):
+                            licence = player.get('licence')
+                            if licence:
+                                player_data = {
+                                    'licence': licence,
+                                    'name': player.get('name', ''),
+                                    'club_code': code,
+                                    'ranking': player.get('ranking'),
+                                    'points_current': player.get('points'),
+                                    'category': 'SEN',
+                                }
+                                queries.insert_player(player_data)
+                                total_players += 1
+                    
+                    # Enrichir avec les données de l'annuaire (pour les catégories)
+                    for member in members_list:
+                        licence = member.get('licence')
+                        if licence:
+                            # Mettre à jour la catégorie si le joueur existe déjà
+                            existing_player = queries.get_player(licence)
+                            if existing_player:
+                                # Mettre à jour seulement la catégorie
+                                queries.insert_player({
+                                    'licence': licence,
+                                    'category': member.get('category', 'SEN')
+                                })
+                            else:
+                                # Ajouter le membre s'il n'existe pas
+                                player_data = {
+                                    'licence': licence,
+                                    'name': member.get('name', ''),
+                                    'club_code': code,
+                                    'ranking': member.get('ranking'),
+                                    'category': member.get('category', 'SEN')
+                                }
+                                queries.insert_player(player_data)
+                                total_players += 1
                     
                     print(f"[SCRAPE] ✅ {code} - {total_players} joueurs total")
                     
