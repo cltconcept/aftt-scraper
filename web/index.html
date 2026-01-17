@@ -2370,6 +2370,7 @@
                                     <th>Erreurs</th>
                                     <th>Durée</th>
                                     <th>Source</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2383,6 +2384,11 @@
                                         <td style="color: ${task.errors_count > 0 ? 'var(--danger)' : 'inherit'}">${task.errors_count || 0}</td>
                                         <td>${formatDuration(task.duration_seconds)}</td>
                                         <td><span class="badge" style="background: ${task.trigger_type === 'cron' ? 'var(--accent)' : 'var(--bg-tertiary)'}; font-size: 0.75rem;">${task.trigger_type === 'cron' ? '⏰ Cron' : '👤 Manuel'}</span></td>
+                                        <td>
+                                            <button onclick="showTaskDetails(${task.id})" class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;">
+                                                ${task.errors_count > 0 ? '🔍 Voir erreurs' : '📋 Détails'}
+                                            </button>
+                                        </td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -2391,6 +2397,152 @@
                 `;
             } catch (e) {
                 container.innerHTML = `<p style="color: var(--danger);">Erreur: ${e.message}</p>`;
+            }
+        }
+
+        async function showTaskDetails(taskId) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/scrape/task/${taskId}`);
+                const task = await res.json();
+                
+                if (!res.ok) {
+                    throw new Error(task.detail || 'Erreur lors du chargement des détails');
+                }
+                
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '-';
+                    try {
+                        const d = new Date(dateStr);
+                        return d.toLocaleString('fr-FR', { 
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit'
+                        });
+                    } catch { return dateStr; }
+                };
+                
+                const formatDuration = (seconds) => {
+                    if (!seconds) return '-';
+                    const h = Math.floor(seconds / 3600);
+                    const m = Math.floor((seconds % 3600) / 60);
+                    const s = Math.floor(seconds % 60);
+                    if (h > 0) return `${h}h ${m}m ${s}s`;
+                    if (m > 0) return `${m}m ${s}s`;
+                    return `${s}s`;
+                };
+                
+                const statusBadge = (status) => {
+                    const badges = {
+                        'running': '<span class="badge" style="background: var(--accent); color: white;">🔄 En cours</span>',
+                        'success': '<span class="badge" style="background: var(--success); color: white;">✅ Succès</span>',
+                        'failed': '<span class="badge" style="background: var(--danger); color: white;">❌ Échec</span>',
+                        'cancelled': '<span class="badge" style="background: var(--text-muted); color: white;">⏹️ Annulé</span>'
+                    };
+                    return badges[status] || status;
+                };
+                
+                let errorsHtml = '';
+                if (task.errors_list && task.errors_list.length > 0) {
+                    errorsHtml = `
+                        <div style="margin-top: 1.5rem;">
+                            <h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--danger);">
+                                ❌ Erreurs (${task.errors_list.length})
+                            </h3>
+                            <div style="background: var(--bg-secondary); border-radius: 8px; padding: 1rem; max-height: 400px; overflow-y: auto;">
+                                <ul style="list-style: none; padding: 0; margin: 0;">
+                                    ${task.errors_list.map((error, index) => `
+                                        <li style="padding: 0.75rem; margin-bottom: 0.5rem; background: var(--bg-card); border-left: 3px solid var(--danger); border-radius: 4px;">
+                                            <div style="display: flex; align-items: start; gap: 0.5rem;">
+                                                <span style="color: var(--danger); font-weight: 600;">#${index + 1}</span>
+                                                <span style="flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-secondary); word-break: break-word;">${error}</span>
+                                            </div>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    errorsHtml = `
+                        <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px; text-align: center; color: var(--text-muted);">
+                            ✅ Aucune erreur
+                        </div>
+                    `;
+                }
+                
+                detailTitle.textContent = `Détails de la tâche #${task.id}`;
+                detailContent.innerHTML = `
+                    <div style="display: grid; gap: 1.5rem;">
+                        <div>
+                            <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text-secondary);">Informations générales</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Statut</div>
+                                    <div>${statusBadge(task.status)}</div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Source</div>
+                                    <div><span class="badge" style="background: ${task.trigger_type === 'cron' ? 'var(--accent)' : 'var(--bg-tertiary)'}; font-size: 0.75rem;">${task.trigger_type === 'cron' ? '⏰ Cron' : '👤 Manuel'}</span></div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Début</div>
+                                    <div style="font-size: 0.9rem;">${formatDate(task.started_at)}</div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Fin</div>
+                                    <div style="font-size: 0.9rem;">${formatDate(task.finished_at)}</div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Durée</div>
+                                    <div style="font-size: 0.9rem;">${formatDuration(task.duration_seconds || (task.started_at && task.finished_at ? (new Date(task.finished_at) - new Date(task.started_at)) / 1000 : null))}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text-secondary);">Statistiques</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Clubs</div>
+                                    <div style="font-size: 1.2rem; font-weight: 600;">${task.completed_clubs || 0}/${task.total_clubs || 0}</div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Joueurs</div>
+                                    <div style="font-size: 1.2rem; font-weight: 600;">${(task.total_players || 0).toLocaleString()}</div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Erreurs</div>
+                                    <div style="font-size: 1.2rem; font-weight: 600; color: ${task.errors_count > 0 ? 'var(--danger)' : 'var(--success)'};">${task.errors_count || 0}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${task.current_club || task.current_province ? `
+                            <div>
+                                <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text-secondary);">Progression</h3>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                                    ${task.current_province ? `
+                                        <div>
+                                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Province actuelle</div>
+                                            <div>${task.current_province}</div>
+                                        </div>
+                                    ` : ''}
+                                    ${task.current_club ? `
+                                        <div>
+                                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Club actuel</div>
+                                            <div>${task.current_club}</div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${errorsHtml}
+                    </div>
+                `;
+                
+                openDetail();
+            } catch (e) {
+                alert(`Erreur lors du chargement des détails: ${e.message}`);
             }
         }
 
