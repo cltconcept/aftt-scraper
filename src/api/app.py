@@ -789,70 +789,115 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                 )
                 
                 try:
-                    # Scraper les membres
+                    from src.scraper.clubs_scraper import extract_province_from_code
+                    
+                    # 1. Scraper les membres actifs du club (pour les infos du club)
                     members_data = get_club_members(code)
                     members_list = members_data.get('members', [])
+                    club_info = members_data.get('club_info', {})
+                    club_name = members_data.get('club_name', code)
                     
-                    # Scraper depuis la page ranking (comme dans scrape_club qui fonctionne)
-                    ranking_data = await get_club_ranking_players_async(code)
+                    # Récupérer la province existante ou la détecter depuis le code
+                    existing_club = queries.get_club(code)
+                    province = None
+                    if existing_club and existing_club.get('province'):
+                        province = existing_club['province']
+                    else:
+                        province = extract_province_from_code(code)
                     
-                    # Traiter les joueurs du ranking (comme dans scrape_club)
-                    if ranking_data:
+                    # Mettre à jour les infos du club dans la base (en préservant la province)
+                    if club_info:
+                        club_data = {
+                            'code': code,
+                            'name': club_name,
+                            'province': province,  # Toujours inclure la province
+                            **club_info
+                        }
+                        queries.insert_club(club_data)
+                    
+                    # 2. Scraper le classement numérique pour avoir TOUS les joueurs (actifs + inactifs)
+                    all_players = {}  # licence -> player_data
+                    
+                    try:
+                        ranking_data = await get_club_ranking_players_async(code)
+                        
                         # Ajouter les joueurs messieurs
                         for player in ranking_data.get('players_men', []):
                             licence = player.get('licence')
                             if licence:
-                                player_data = {
+                                all_players[licence] = {
                                     'licence': licence,
-                                    'name': player.get('name', ''),
+                                    'name': player.get('name'),
                                     'club_code': code,
                                     'ranking': player.get('ranking'),
                                     'points_current': player.get('points'),
                                     'category': 'SEN',  # Par défaut
                                 }
-                                queries.insert_player(player_data)
-                                total_players += 1
                         
                         # Ajouter les joueuses
                         for player in ranking_data.get('players_women', []):
                             licence = player.get('licence')
                             if licence:
-                                player_data = {
+                                all_players[licence] = {
                                     'licence': licence,
-                                    'name': player.get('name', ''),
+                                    'name': player.get('name'),
                                     'club_code': code,
                                     'ranking': player.get('ranking'),
                                     'points_current': player.get('points'),
                                     'category': 'SEN',
                                 }
-                                queries.insert_player(player_data)
-                                total_players += 1
+                    except Exception as e:
+                        # Si le scraping ranking échoue, continuer avec les membres classiques
+                        print(f"[WARNING] Erreur ranking_scraper pour {code}: {e}")
                     
-                    # Enrichir avec les données de l'annuaire (pour les catégories)
+                    # 3. Enrichir avec les données de l'annuaire (pour les catégories)
                     for member in members_list:
                         licence = member.get('licence')
                         if licence:
-                            # Mettre à jour la catégorie si le joueur existe déjà
-                            existing_player = queries.get_player(licence)
-                            if existing_player:
-                                # Mettre à jour seulement la catégorie
-                                queries.insert_player({
-                                    'licence': licence,
-                                    'category': member.get('category', 'SEN')
-                                })
+                            if licence in all_players:
+                                # Mettre à jour avec les infos de l'annuaire
+                                all_players[licence]['category'] = member.get('category', 'SEN')
                             else:
                                 # Ajouter le membre s'il n'existe pas
-                                player_data = {
+                                all_players[licence] = {
                                     'licence': licence,
-                                    'name': member.get('name', ''),
+                                    'name': member.get('name'),
                                     'club_code': code,
                                     'ranking': member.get('ranking'),
-                                    'category': member.get('category', 'SEN')
+                                    'category': member.get('category', 'SEN'),
                                 }
-                                queries.insert_player(player_data)
-                                total_players += 1
                     
-                    print(f"[SCRAPE] ✅ {code} - {total_players} joueurs total")
+                    # 4. Importer tous les joueurs dans la base
+                    for licence, player_data in all_players.items():
+                        queries.insert_player(player_data)
+                    
+                    total_players += len(all_players)
+                    
+                    # 5. Scraper les fiches de tous les joueurs du club
+                    for licence, player_data in all_players.items():
+                        if not licence:
+                            continue
+                        
+                        try:
+                            # Scraper la fiche du joueur
+                            player_info = get_player_info(licence)
+                            
+                            # Mettre à jour avec les données de la fiche
+                            updated_data = {
+                                'licence': licence,
+                                'name': player_info.get('name') or player_data.get('name'),
+                                'club_code': code,
+                                'ranking': player_info.get('ranking') or player_data.get('ranking'),
+                                'points_start': player_info.get('points_start'),
+                                'points_current': player_info.get('points_current') or player_data.get('points_current'),
+                                'category': player_data.get('category', 'SEN'),
+                            }
+                            queries.insert_player(updated_data)
+                        except Exception as e:
+                            # Erreur sur une fiche individuelle, continuer
+                            pass
+                    
+                    print(f"[SCRAPE] ✅ {code} - {len(all_players)} joueurs total")
                     
                 except Exception as e:
                     error_msg = f"{code}: {str(e)}"
