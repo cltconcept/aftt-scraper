@@ -795,6 +795,9 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                     
                     if members_list:
                         for member in members_list:
+                            # Vérifier que member est un dictionnaire
+                            if not isinstance(member, dict):
+                                continue
                             player_data = {
                                 'licence': member.get('licence'),
                                 'name': member.get('name', ''),
@@ -806,20 +809,27 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                                 queries.insert_player(player_data)
                     
                     # Scraper depuis la page ranking
-                    ranking_players = await get_club_ranking_players_async(code)
+                    ranking_data = await get_club_ranking_players_async(code)
                     
-                    if ranking_players:
-                        for player in ranking_players:
-                            player_data = {
-                                'licence': player.get('licence'),
-                                'name': player.get('name', ''),
-                                'club_code': code,
-                                'ranking': player.get('ranking'),
-                                'points_current': player.get('points')
-                            }
-                            if player_data['licence']:
-                                queries.insert_player(player_data)
-                        total_players += len(ranking_players)
+                    if ranking_data:
+                        # Combiner les joueurs messieurs et dames
+                        all_ranking_players = []
+                        if isinstance(ranking_data, dict):
+                            all_ranking_players.extend(ranking_data.get('players_men', []))
+                            all_ranking_players.extend(ranking_data.get('players_women', []))
+                        
+                        for player in all_ranking_players:
+                            if isinstance(player, dict):
+                                player_data = {
+                                    'licence': player.get('licence'),
+                                    'name': player.get('name', ''),
+                                    'club_code': code,
+                                    'ranking': player.get('ranking'),
+                                    'points_current': player.get('points')
+                                }
+                                if player_data['licence']:
+                                    queries.insert_player(player_data)
+                        total_players += len(all_ranking_players)
                     elif members_list:
                         total_players += len(members_list)
                     
