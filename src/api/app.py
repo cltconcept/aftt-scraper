@@ -835,6 +835,7 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                             **club_info
                         }
                         queries.insert_club(club_data)
+                        _add_log(task_id, f"[DB] ✅ Club {code} ({club_name}) sauvegardé")
                     
                     # 2. Scraper le classement numérique pour avoir TOUS les joueurs (actifs + inactifs)
                     all_players = {}  # licence -> player_data
@@ -889,8 +890,15 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                                 }
                     
                     # 4. Importer tous les joueurs dans la base
+                    players_inserted = 0
                     for licence, player_data in all_players.items():
                         queries.insert_player(player_data)
+                        players_inserted += 1
+                        if players_inserted % 10 == 0:  # Log tous les 10 joueurs pour ne pas surcharger
+                            _add_log(task_id, f"[DB] 📝 {players_inserted}/{len(all_players)} joueurs de base sauvegardés")
+                    
+                    if players_inserted > 0:
+                        _add_log(task_id, f"[DB] ✅ {players_inserted} joueurs de base sauvegardés pour {code}")
                     
                     total_players += len(all_players)
                     
@@ -934,23 +942,29 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                             
                             # Insérer les matchs masculins
                             matches_masculine = player_info.get('matches', [])
+                            matches_m_count = 0
                             for match in matches_masculine:
                                 queries.insert_match({
                                     **match,
                                     'player_licence': licence,
                                     'fiche_type': 'masculine'
                                 })
+                                matches_m_count += 1
                             
                             # Insérer les statistiques masculines
                             stats_by_ranking = player_info.get('stats_by_ranking', [])
+                            stats_m_count = 0
                             for stat in stats_by_ranking:
                                 queries.insert_player_stat({
                                     **stat,
                                     'player_licence': licence,
                                     'fiche_type': 'masculine'
                                 })
+                                stats_m_count += 1
                             
                             # Insérer les matchs et stats féminins si présents
+                            matches_f_count = 0
+                            stats_f_count = 0
                             if women_stats:
                                 for match in women_stats.get('matches', []):
                                     queries.insert_match({
@@ -958,6 +972,7 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                                         'player_licence': licence,
                                         'fiche_type': 'feminine'
                                     })
+                                    matches_f_count += 1
                                 
                                 for stat in women_stats.get('stats_by_ranking', []):
                                     queries.insert_player_stat({
@@ -965,15 +980,40 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                                         'player_licence': licence,
                                         'fiche_type': 'feminine'
                                     })
+                                    stats_f_count += 1
+                            
+                            # Log détaillé pour chaque joueur
+                            log_parts = [f"[DB] 👤 {licence} ({updated_data.get('name', 'N/A')[:30]})"]
+                            if matches_m_count > 0:
+                                log_parts.append(f"{matches_m_count}M matchs")
+                            if stats_m_count > 0:
+                                log_parts.append(f"{stats_m_count}M stats")
+                            if matches_f_count > 0:
+                                log_parts.append(f"{matches_f_count}F matchs")
+                            if stats_f_count > 0:
+                                log_parts.append(f"{stats_f_count}F stats")
+                            
+                            if matches_m_count > 0 or stats_m_count > 0 or matches_f_count > 0 or stats_f_count > 0:
+                                _add_log(task_id, " | ".join(log_parts))
                             
                             players_scraped += 1
+                            
+                            # Log tous les 5 joueurs pour le résumé
+                            if players_scraped % 5 == 0:
+                                _add_log(task_id, f"[DB] 📊 {players_scraped}/{len(all_players)} fiches complètes scrapées pour {code}")
                         except Exception as e:
                             # Erreur sur une fiche individuelle, continuer
                             error_msg = f"Erreur fiche joueur {licence}: {str(e)[:100]}"
                             players_errors.append(error_msg)
                             _add_log(task_id, f"[WARNING] {error_msg}")
                     
-                    _add_log(task_id, f"[SCRAPE] ✅ {code} - {len(all_players)} joueurs, {players_scraped} fiches scrapées")
+                    # Résumé final pour le club
+                    summary_parts = [f"[SCRAPE] ✅ {code}"]
+                    summary_parts.append(f"{len(all_players)} joueurs")
+                    summary_parts.append(f"{players_scraped} fiches")
+                    if players_errors:
+                        summary_parts.append(f"{len(players_errors)} erreurs")
+                    _add_log(task_id, " | ".join(summary_parts))
                     
                 except Exception as e:
                     error_msg = f"{code}: {str(e)}"
