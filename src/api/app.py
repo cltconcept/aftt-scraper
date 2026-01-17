@@ -894,8 +894,10 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                     
                     total_players += len(all_players)
                     
-                    # 5. Scraper les fiches de tous les joueurs du club
+                    # 5. Scraper les fiches de tous les joueurs du club (comme dans scrape_club)
                     players_scraped = 0
+                    players_errors = []
+                    
                     for licence, player_data in all_players.items():
                         if not licence:
                             continue
@@ -904,21 +906,72 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                             # Scraper la fiche du joueur
                             player_info = get_player_info(licence)
                             
-                            # Mettre à jour avec les données de la fiche
+                            # Préparer les données du joueur (comme dans scrape_club)
                             updated_data = {
                                 'licence': licence,
                                 'name': player_info.get('name') or player_data.get('name'),
                                 'club_code': code,
                                 'ranking': player_info.get('ranking') or player_data.get('ranking'),
+                                'category': player_data.get('category', 'SEN'),
                                 'points_start': player_info.get('points_start'),
                                 'points_current': player_info.get('points_current') or player_data.get('points_current'),
-                                'category': player_data.get('category', 'SEN'),
+                                'ranking_position': player_info.get('ranking_position'),
+                                'total_wins': player_info.get('total_wins', 0),
+                                'total_losses': player_info.get('total_losses', 0),
+                                'last_update': player_info.get('last_update'),
                             }
+                            
+                            # Données féminines si présentes
+                            women_stats = player_info.get('women_stats')
+                            if women_stats:
+                                updated_data['women_points_start'] = women_stats.get('points_start')
+                                updated_data['women_points_current'] = women_stats.get('points_current')
+                                updated_data['women_total_wins'] = women_stats.get('total_wins', 0)
+                                updated_data['women_total_losses'] = women_stats.get('total_losses', 0)
+                            
+                            # Insérer/mettre à jour le joueur
                             queries.insert_player(updated_data)
+                            
+                            # Insérer les matchs masculins
+                            matches_masculine = player_info.get('matches', [])
+                            for match in matches_masculine:
+                                queries.insert_match({
+                                    **match,
+                                    'player_licence': licence,
+                                    'fiche_type': 'masculine'
+                                })
+                            
+                            # Insérer les statistiques masculines
+                            stats_by_ranking = player_info.get('stats_by_ranking', [])
+                            for stat in stats_by_ranking:
+                                queries.insert_player_stat({
+                                    **stat,
+                                    'player_licence': licence,
+                                    'fiche_type': 'masculine'
+                                })
+                            
+                            # Insérer les matchs et stats féminins si présents
+                            if women_stats:
+                                for match in women_stats.get('matches', []):
+                                    queries.insert_match({
+                                        **match,
+                                        'player_licence': licence,
+                                        'fiche_type': 'feminine'
+                                    })
+                                
+                                for stat in women_stats.get('stats_by_ranking', []):
+                                    queries.insert_player_stat({
+                                        **stat,
+                                        'player_licence': licence,
+                                        'fiche_type': 'feminine'
+                                    })
+                            
                             players_scraped += 1
                         except Exception as e:
                             # Erreur sur une fiche individuelle, continuer
-                            _add_log(task_id, f"[WARNING] Erreur fiche joueur {licence}: {str(e)[:100]}")
+                            error_msg = f"Erreur fiche joueur {licence}: {str(e)[:100]}"
+                            players_errors.append(error_msg)
+                            _add_log(task_id, f"[WARNING] {error_msg}")
                     
                     _add_log(task_id, f"[SCRAPE] ✅ {code} - {len(all_players)} joueurs, {players_scraped} fiches scrapées")
                     
