@@ -605,3 +605,277 @@ def get_active_players_count() -> int:
         cursor = db.execute(sql)
         row = cursor.fetchone()
         return row['count'] if row else 0
+
+
+# =============================================================================
+# TOURNAMENTS
+# =============================================================================
+
+def insert_tournament(tournament: Dict[str, Any], db: sqlite3.Connection = None) -> None:
+    """Insère ou met à jour un tournoi."""
+    sql = """
+    INSERT INTO tournaments (t_id, name, level, date_start, date_end, reference, series_count)
+    VALUES (:t_id, :name, :level, :date_start, :date_end, :reference, :series_count)
+    ON CONFLICT(t_id) DO UPDATE SET
+        name = COALESCE(excluded.name, tournaments.name),
+        level = COALESCE(excluded.level, tournaments.level),
+        date_start = COALESCE(excluded.date_start, tournaments.date_start),
+        date_end = COALESCE(excluded.date_end, tournaments.date_end),
+        reference = COALESCE(excluded.reference, tournaments.reference),
+        series_count = COALESCE(excluded.series_count, tournaments.series_count),
+        updated_at = CURRENT_TIMESTAMP
+    """
+    
+    data = {
+        't_id': tournament.get('t_id'),
+        'name': tournament.get('name'),
+        'level': tournament.get('level'),
+        'date_start': tournament.get('date_start'),
+        'date_end': tournament.get('date_end'),
+        'reference': tournament.get('reference'),
+        'series_count': tournament.get('series_count', 0),
+    }
+    
+    if db:
+        db.execute(sql, data)
+    else:
+        with get_db() as conn:
+            conn.execute(sql, data)
+
+
+def get_tournament(t_id: int) -> Optional[Dict]:
+    """Récupère un tournoi par son ID."""
+    with get_db() as db:
+        cursor = db.execute("SELECT * FROM tournaments WHERE t_id = ?", (t_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_all_tournaments(
+    level: str = None,
+    date_from: str = None,
+    date_to: str = None,
+    search: str = None,
+    limit: int = None,
+    offset: int = 0
+) -> List[Dict]:
+    """Récupère les tournois avec filtres optionnels."""
+    sql = "SELECT * FROM tournaments WHERE 1=1"
+    params = []
+    
+    if level:
+        sql += " AND level = ?"
+        params.append(level)
+    
+    if date_from:
+        sql += " AND date_start >= ?"
+        params.append(date_from)
+    
+    if date_to:
+        sql += " AND date_start <= ?"
+        params.append(date_to)
+    
+    if search:
+        sql += " AND (name LIKE ? OR reference LIKE ?)"
+        params.extend([f"%{search}%", f"%{search}%"])
+    
+    sql += " ORDER BY date_start DESC"
+    
+    if limit:
+        sql += " LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+    
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_tournament_levels() -> List[str]:
+    """Récupère la liste des niveaux de tournois distincts."""
+    with get_db() as db:
+        cursor = db.execute("SELECT DISTINCT level FROM tournaments WHERE level IS NOT NULL ORDER BY level")
+        return [row[0] for row in cursor.fetchall()]
+
+
+def get_tournaments_count() -> int:
+    """Récupère le nombre total de tournois."""
+    sql = "SELECT COUNT(*) as count FROM tournaments"
+    with get_db() as db:
+        cursor = db.execute(sql)
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
+
+# =============================================================================
+# TOURNAMENT SERIES
+# =============================================================================
+
+def insert_tournament_series(series: Dict[str, Any], db: sqlite3.Connection = None) -> None:
+    """Insère ou met à jour une série de tournoi."""
+    sql = """
+    INSERT INTO tournament_series (tournament_id, series_name, date, time, inscriptions_count, inscriptions_max)
+    VALUES (:tournament_id, :series_name, :date, :time, :inscriptions_count, :inscriptions_max)
+    ON CONFLICT(tournament_id, series_name) DO UPDATE SET
+        date = COALESCE(excluded.date, tournament_series.date),
+        time = COALESCE(excluded.time, tournament_series.time),
+        inscriptions_count = COALESCE(excluded.inscriptions_count, tournament_series.inscriptions_count),
+        inscriptions_max = COALESCE(excluded.inscriptions_max, tournament_series.inscriptions_max)
+    """
+    
+    data = {
+        'tournament_id': series.get('tournament_id'),
+        'series_name': series.get('series_name'),
+        'date': series.get('date'),
+        'time': series.get('time'),
+        'inscriptions_count': series.get('inscriptions_count', 0),
+        'inscriptions_max': series.get('inscriptions_max', 0),
+    }
+    
+    if db:
+        db.execute(sql, data)
+    else:
+        with get_db() as conn:
+            conn.execute(sql, data)
+
+
+def get_tournament_series(tournament_id: int) -> List[Dict]:
+    """Récupère les séries d'un tournoi."""
+    sql = """
+        SELECT * FROM tournament_series 
+        WHERE tournament_id = ?
+        ORDER BY date, time, series_name
+    """
+    with get_db() as db:
+        cursor = db.execute(sql, (tournament_id,))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+# =============================================================================
+# TOURNAMENT INSCRIPTIONS
+# =============================================================================
+
+def insert_tournament_inscription(inscription: Dict[str, Any], db: sqlite3.Connection = None) -> None:
+    """Insère ou met à jour une inscription à un tournoi."""
+    sql = """
+    INSERT INTO tournament_inscriptions (tournament_id, series_name, player_licence, player_name, player_club, player_ranking)
+    VALUES (:tournament_id, :series_name, :player_licence, :player_name, :player_club, :player_ranking)
+    ON CONFLICT(tournament_id, series_name, player_licence) DO UPDATE SET
+        player_name = COALESCE(excluded.player_name, tournament_inscriptions.player_name),
+        player_club = COALESCE(excluded.player_club, tournament_inscriptions.player_club),
+        player_ranking = COALESCE(excluded.player_ranking, tournament_inscriptions.player_ranking)
+    """
+    
+    data = {
+        'tournament_id': inscription.get('tournament_id'),
+        'series_name': inscription.get('series_name'),
+        'player_licence': inscription.get('player_licence'),
+        'player_name': inscription.get('player_name'),
+        'player_club': inscription.get('player_club'),
+        'player_ranking': inscription.get('player_ranking'),
+    }
+    
+    if db:
+        db.execute(sql, data)
+    else:
+        with get_db() as conn:
+            conn.execute(sql, data)
+
+
+def get_tournament_inscriptions(tournament_id: int, series_name: str = None) -> List[Dict]:
+    """Récupère les inscriptions d'un tournoi."""
+    sql = "SELECT * FROM tournament_inscriptions WHERE tournament_id = ?"
+    params = [tournament_id]
+    
+    if series_name:
+        sql += " AND series_name = ?"
+        params.append(series_name)
+    
+    sql += " ORDER BY series_name, player_ranking, player_name"
+    
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_player_tournament_inscriptions(player_licence: str) -> List[Dict]:
+    """Récupère les inscriptions d'un joueur à des tournois."""
+    sql = """
+        SELECT ti.*, t.name as tournament_name, t.date_start, t.level
+        FROM tournament_inscriptions ti
+        JOIN tournaments t ON ti.tournament_id = t.t_id
+        WHERE ti.player_licence = ?
+        ORDER BY t.date_start DESC
+    """
+    with get_db() as db:
+        cursor = db.execute(sql, (player_licence,))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+# =============================================================================
+# TOURNAMENT RESULTS
+# =============================================================================
+
+def insert_tournament_result(result: Dict[str, Any], db: sqlite3.Connection = None) -> None:
+    """Insère un résultat de tournoi."""
+    sql = """
+    INSERT INTO tournament_results (tournament_id, series_name, player1_licence, player1_name, 
+                                    player2_licence, player2_name, score, winner_licence, round)
+    VALUES (:tournament_id, :series_name, :player1_licence, :player1_name,
+            :player2_licence, :player2_name, :score, :winner_licence, :round)
+    """
+    
+    data = {
+        'tournament_id': result.get('tournament_id'),
+        'series_name': result.get('series_name'),
+        'player1_licence': result.get('player1_licence'),
+        'player1_name': result.get('player1_name'),
+        'player2_licence': result.get('player2_licence'),
+        'player2_name': result.get('player2_name'),
+        'score': result.get('score'),
+        'winner_licence': result.get('winner_licence'),
+        'round': result.get('round'),
+    }
+    
+    if db:
+        db.execute(sql, data)
+    else:
+        with get_db() as conn:
+            conn.execute(sql, data)
+
+
+def get_tournament_results(tournament_id: int, series_name: str = None) -> List[Dict]:
+    """Récupère les résultats d'un tournoi."""
+    sql = "SELECT * FROM tournament_results WHERE tournament_id = ?"
+    params = [tournament_id]
+    
+    if series_name:
+        sql += " AND series_name = ?"
+        params.append(series_name)
+    
+    sql += " ORDER BY series_name, round, id"
+    
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_player_tournament_results(player_licence: str) -> List[Dict]:
+    """Récupère les résultats de tournois d'un joueur."""
+    sql = """
+        SELECT tr.*, t.name as tournament_name, t.date_start, t.level
+        FROM tournament_results tr
+        JOIN tournaments t ON tr.tournament_id = t.t_id
+        WHERE tr.player1_licence = ? OR tr.player2_licence = ?
+        ORDER BY t.date_start DESC
+    """
+    with get_db() as db:
+        cursor = db.execute(sql, (player_licence, player_licence))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def delete_tournament_data(tournament_id: int) -> None:
+    """Supprime toutes les données d'un tournoi (séries, inscriptions, résultats)."""
+    with get_db() as db:
+        db.execute("DELETE FROM tournament_results WHERE tournament_id = ?", (tournament_id,))
+        db.execute("DELETE FROM tournament_inscriptions WHERE tournament_id = ?", (tournament_id,))
+        db.execute("DELETE FROM tournament_series WHERE tournament_id = ?", (tournament_id,))

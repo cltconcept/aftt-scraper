@@ -99,6 +99,57 @@ class ScrapeTask:
     current_province: Optional[str] = None
 
 
+@dataclass
+class Tournament:
+    """Représente un tournoi de tennis de table."""
+    t_id: int
+    name: str
+    level: Optional[str] = None
+    date_start: Optional[str] = None
+    date_end: Optional[str] = None
+    reference: Optional[str] = None
+    series_count: int = 0
+
+
+@dataclass
+class TournamentSeries:
+    """Représente une série d'un tournoi."""
+    id: Optional[int] = None
+    tournament_id: int = 0
+    series_name: str = ""
+    date: Optional[str] = None
+    time: Optional[str] = None
+    inscriptions_count: int = 0
+    inscriptions_max: int = 0
+
+
+@dataclass
+class TournamentInscription:
+    """Représente une inscription à un tournoi."""
+    id: Optional[int] = None
+    tournament_id: int = 0
+    series_name: str = ""
+    player_licence: str = ""
+    player_name: str = ""
+    player_club: Optional[str] = None
+    player_ranking: Optional[str] = None
+
+
+@dataclass
+class TournamentResult:
+    """Représente un résultat de match dans un tournoi."""
+    id: Optional[int] = None
+    tournament_id: int = 0
+    series_name: str = ""
+    player1_licence: Optional[str] = None
+    player1_name: str = ""
+    player2_licence: Optional[str] = None
+    player2_name: str = ""
+    score: str = ""
+    winner_licence: Optional[str] = None
+    round: Optional[str] = None
+
+
 # SQL pour créer les tables
 CREATE_TABLES_SQL = """
 -- Table des clubs
@@ -195,6 +246,60 @@ CREATE TABLE IF NOT EXISTS scrape_tasks (
     current_province TEXT
 );
 
+-- Table des tournois
+CREATE TABLE IF NOT EXISTS tournaments (
+    t_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    level TEXT,
+    date_start TEXT,
+    date_end TEXT,
+    reference TEXT,
+    series_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table des séries de tournoi
+CREATE TABLE IF NOT EXISTS tournament_series (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tournament_id INTEGER NOT NULL REFERENCES tournaments(t_id),
+    series_name TEXT NOT NULL,
+    date TEXT,
+    time TEXT,
+    inscriptions_count INTEGER DEFAULT 0,
+    inscriptions_max INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(tournament_id, series_name)
+);
+
+-- Table des inscriptions aux tournois
+CREATE TABLE IF NOT EXISTS tournament_inscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tournament_id INTEGER NOT NULL REFERENCES tournaments(t_id),
+    series_name TEXT,
+    player_licence TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    player_club TEXT,
+    player_ranking TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(tournament_id, series_name, player_licence)
+);
+
+-- Table des résultats de tournoi
+CREATE TABLE IF NOT EXISTS tournament_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tournament_id INTEGER NOT NULL REFERENCES tournaments(t_id),
+    series_name TEXT,
+    player1_licence TEXT,
+    player1_name TEXT,
+    player2_licence TEXT,
+    player2_name TEXT,
+    score TEXT,
+    winner_licence TEXT,
+    round TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Index pour les recherches fréquentes
 CREATE INDEX IF NOT EXISTS idx_players_club ON players(club_code);
 CREATE INDEX IF NOT EXISTS idx_players_ranking ON players(ranking);
@@ -204,4 +309,10 @@ CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date);
 CREATE INDEX IF NOT EXISTS idx_matches_opponent ON matches(opponent_licence);
 CREATE INDEX IF NOT EXISTS idx_clubs_province ON clubs(province);
 CREATE INDEX IF NOT EXISTS idx_scrape_tasks_status ON scrape_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tournaments_level ON tournaments(level);
+CREATE INDEX IF NOT EXISTS idx_tournaments_date ON tournaments(date_start);
+CREATE INDEX IF NOT EXISTS idx_tournament_series_tournament ON tournament_series(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_inscriptions_tournament ON tournament_inscriptions(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_inscriptions_player ON tournament_inscriptions(player_licence);
+CREATE INDEX IF NOT EXISTS idx_tournament_results_tournament ON tournament_results(tournament_id);
 """
