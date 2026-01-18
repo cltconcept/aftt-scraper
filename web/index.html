@@ -1928,6 +1928,17 @@
             // Matchs masculins (depuis matches_masculine de l'API)
             const matchesMasculine = player.matches_masculine || [];
             if (matchesMasculine.length > 0) {
+                // Fonction pour parser une date DD/MM/YYYY en timestamp
+                const parseDate = (dateStr) => {
+                    if (!dateStr || dateStr === 'N/A') return 0;
+                    const parts = dateStr.split('/');
+                    if (parts.length !== 3) return 0;
+                    const day = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10);
+                    const year = parseInt(parts[2], 10);
+                    return new Date(year, month - 1, day).getTime();
+                };
+                
                 // Grouper les matchs par journée
                 const matchesByDay = {};
                 matchesMasculine.forEach(m => {
@@ -1938,7 +1949,14 @@
 
                 content += `<h3 style="margin: 1.5rem 0 1rem;">Matchs par journée</h3>`;
                 
-                Object.entries(matchesByDay).forEach(([key, matches]) => {
+                // Trier les journées par date décroissante (plus récent en premier)
+                const sortedDays = Object.entries(matchesByDay).sort(([keyA], [keyB]) => {
+                    const dateA = keyA.split('|')[0];
+                    const dateB = keyB.split('|')[0];
+                    return parseDate(dateB) - parseDate(dateA); // Décroissant
+                });
+                
+                sortedDays.forEach(([key, matches]) => {
                     const [date, division, club] = key.split('|');
                     const wins = matches.filter(m => m.won).length;
                     const losses = matches.length - wins;
@@ -2003,6 +2021,17 @@
                 `;
 
                 if (matchesFeminine.length > 0) {
+                    // Fonction pour parser une date DD/MM/YYYY en timestamp
+                    const parseDate = (dateStr) => {
+                        if (!dateStr || dateStr === 'N/A') return 0;
+                        const parts = dateStr.split('/');
+                        if (parts.length !== 3) return 0;
+                        const day = parseInt(parts[0], 10);
+                        const month = parseInt(parts[1], 10);
+                        const year = parseInt(parts[2], 10);
+                        return new Date(year, month - 1, day).getTime();
+                    };
+                    
                     // Grouper les matchs féminins par journée
                     const wMatchesByDay = {};
                     matchesFeminine.forEach(m => {
@@ -2011,7 +2040,14 @@
                         wMatchesByDay[key].push(m);
                     });
                     
-                    Object.entries(wMatchesByDay).forEach(([key, matches]) => {
+                    // Trier les journées par date décroissante (plus récent en premier)
+                    const sortedDays = Object.entries(wMatchesByDay).sort(([keyA], [keyB]) => {
+                        const dateA = keyA.split('|')[0];
+                        const dateB = keyB.split('|')[0];
+                        return parseDate(dateB) - parseDate(dateA); // Décroissant
+                    });
+                    
+                    sortedDays.forEach(([key, matches]) => {
                         const [date, division, club] = key.split('|');
                         const wins = matches.filter(m => m.won).length;
                         const losses = matches.length - wins;
