@@ -71,24 +71,42 @@ POST /api/scrape/cancel
 2. Aller dans votre application
 3. Cliquer sur **"Scheduled Tasks"** ou **"Cron Jobs"**
 
-### Étape 2 : Créer une tâche planifiée
+### Étape 2 : Créer les tâches planifiées
 
-**Option A : Tâche HTTP (recommandé)**
+#### Tâche 1 : Scraping des clubs/joueurs (quotidien)
 
-- **Nom** : `daily-scrape`
+- **Nom** : `daily-scrape-clubs`
 - **Schedule** : `0 2 * * *` (tous les jours à 2h du matin)
 - **Command** :
   ```bash
   curl -X POST http://localhost:3000/api/scrape/all?trigger=cron
   ```
 
+#### Tâche 2 : Scraping des tournois (hebdomadaire)
+
+- **Nom** : `weekly-scrape-tournaments`
+- **Schedule** : `0 3 * * 1` (tous les lundis à 3h du matin)
+- **Command** :
+  ```bash
+  curl -X POST http://localhost:3000/api/scrape/tournaments
+  ```
+
 **Option B : Via Docker exec**
 
 Si Coolify ne supporte pas les tâches HTTP :
+
+Pour les clubs :
 - **Schedule** : `0 2 * * *`
 - **Command** :
   ```bash
   docker exec CONTAINER_NAME curl -X POST http://localhost:3000/api/scrape/all?trigger=cron
+  ```
+
+Pour les tournois :
+- **Schedule** : `0 3 * * 1`
+- **Command** :
+  ```bash
+  docker exec CONTAINER_NAME curl -X POST http://localhost:3000/api/scrape/tournaments
   ```
 
 Remplacez `CONTAINER_NAME` par le nom de votre container.
@@ -101,17 +119,33 @@ Le port `3000` est celui injecté par Coolify via `$PORT`. Ajustez si nécessair
 
 L'interface web inclut une section **Admin** accessible depuis le menu principal :
 
-- **Bouton "Lancer scraping complet"** : Démarre manuellement
+- **Bouton "Lancer scraping complet"** : Démarre le scraping des clubs/joueurs
 - **Progression en temps réel** : Barre de progression, clubs/joueurs, erreurs
 - **Historique** : Tableau avec toutes les tâches passées
+
+### Section Tournois
+
+L'interface web inclut également une section **Tournois** avec :
+
+- **Bouton "Scraper les tournois"** : Lance le scraping complet des tournois
+- **Progression en temps réel** : Tournois traités, séries, inscriptions
+- **Liste des tournois** : Filtrable par niveau et recherche
+- **Détails d'un tournoi** : Séries, inscriptions, résultats
 
 ## Comportement
 
 ### Durée estimée
 
+**Scraping clubs/joueurs :**
 - ~530 clubs
 - ~30 000 joueurs
 - Durée : **2-3 heures**
+
+**Scraping tournois :**
+- ~300 tournois
+- ~2 500 séries
+- ~6 700 inscriptions
+- Durée : **15-30 minutes**
 
 ### Protection contre les doublons
 
