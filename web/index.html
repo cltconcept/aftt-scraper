@@ -2855,16 +2855,18 @@
             grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 3rem;">Chargement des détails...</p>`;
             
             try {
-                // Charger les infos du tournoi
-                const [tournamentRes, seriesRes, inscriptionsRes] = await Promise.all([
+                // Charger les infos du tournoi (avec les résultats)
+                const [tournamentRes, seriesRes, inscriptionsRes, resultsRes] = await Promise.all([
                     fetch(`${API_BASE_URL}/api/tournaments/${t_id}`),
                     fetch(`${API_BASE_URL}/api/tournaments/${t_id}/series`),
-                    fetch(`${API_BASE_URL}/api/tournaments/${t_id}/inscriptions`)
+                    fetch(`${API_BASE_URL}/api/tournaments/${t_id}/inscriptions`),
+                    fetch(`${API_BASE_URL}/api/tournaments/${t_id}/results`)
                 ]);
                 
                 const tournament = tournamentRes.ok ? await tournamentRes.json() : null;
                 const seriesData = seriesRes.ok ? await seriesRes.json() : { series: [] };
                 const inscriptionsData = inscriptionsRes.ok ? await inscriptionsRes.json() : { inscriptions: [] };
+                const resultsData = resultsRes.ok ? await resultsRes.json() : { results: [] };
                 
                 if (!tournament) {
                     grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--error); text-align: center; padding: 3rem;">Tournoi non trouvé</p>`;
@@ -2876,11 +2878,77 @@
                 // Grouper les inscriptions par série
                 const inscriptionsBySeries = {};
                 inscriptionsData.inscriptions.forEach(i => {
-                    if (!inscriptionsBySeries[i.series_name]) {
-                        inscriptionsBySeries[i.series_name] = [];
+                    const key = i.series_name || 'Sans série';
+                    if (!inscriptionsBySeries[key]) {
+                        inscriptionsBySeries[key] = [];
                     }
-                    inscriptionsBySeries[i.series_name].push(i);
+                    inscriptionsBySeries[key].push(i);
                 });
+                
+                // Grouper les résultats par série
+                const resultsBySeries = {};
+                resultsData.results.forEach(r => {
+                    const key = r.series_name || 'Sans série';
+                    if (!resultsBySeries[key]) {
+                        resultsBySeries[key] = [];
+                    }
+                    resultsBySeries[key].push(r);
+                });
+                
+                // Fonction pour générer le HTML des inscriptions d'une série
+                const renderSeriesInscriptions = (seriesName) => {
+                    const inscriptions = inscriptionsBySeries[seriesName] || [];
+                    if (inscriptions.length === 0) return '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0;">Aucune inscription</p>';
+                    
+                    return `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem; margin-top: 0.5rem;">
+                            ${inscriptions.map(i => `
+                                <div style="background: var(--bg-secondary); padding: 0.5rem 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-weight: 500; font-size: 0.9rem;">${i.player_name}</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);">${i.player_club || 'N/A'}</div>
+                                    </div>
+                                    <span style="background: var(--accent-glow); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">${i.player_ranking || 'NC'}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                };
+                
+                // Fonction pour générer le HTML des résultats d'une série
+                const renderSeriesResults = (seriesName) => {
+                    const results = resultsBySeries[seriesName] || [];
+                    if (results.length === 0) return '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0;">Aucun résultat</p>';
+                    
+                    return `
+                        <div style="display: grid; gap: 0.5rem; margin-top: 0.5rem;">
+                            ${results.map(r => {
+                                const isPlayer1Winner = r.winner_licence === r.player1_licence;
+                                const isPlayer2Winner = r.winner_licence === r.player2_licence;
+                                return `
+                                    <div style="background: var(--bg-secondary); padding: 0.75rem; border-radius: 6px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                                            <div style="flex: 1; min-width: 150px;">
+                                                <div style="font-weight: ${isPlayer1Winner ? '700' : '400'}; color: ${isPlayer1Winner ? 'var(--success)' : 'var(--text-primary)'};">
+                                                    ${isPlayer1Winner ? '🏆 ' : ''}${r.player1_name || 'N/A'}
+                                                </div>
+                                            </div>
+                                            <div style="font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 1.1rem; background: var(--bg-card); padding: 0.25rem 0.75rem; border-radius: 4px;">
+                                                ${r.score || '-'}
+                                            </div>
+                                            <div style="flex: 1; min-width: 150px; text-align: right;">
+                                                <div style="font-weight: ${isPlayer2Winner ? '700' : '400'}; color: ${isPlayer2Winner ? 'var(--success)' : 'var(--text-primary)'};">
+                                                    ${r.player2_name || 'N/A'}${isPlayer2Winner ? ' 🏆' : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        ${r.round ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;">${r.round}</div>` : ''}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                };
                 
                 grid.innerHTML = `
                     <div style="grid-column: 1/-1;">
@@ -2903,76 +2971,110 @@
                                     <div style="color: var(--text-muted); font-size: 0.85rem;">Séries</div>
                                     <div style="font-weight: 600;">${tournament.series_count || seriesData.series.length}</div>
                                 </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">Inscriptions</div>
+                                    <div style="font-weight: 600;">${inscriptionsData.inscriptions.length}</div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">Résultats</div>
+                                    <div style="font-weight: 600;">${resultsData.results.length}</div>
+                                </div>
                             </div>
                         </div>
                         
-                        <!-- Séries -->
+                        <!-- Séries avec onglets inscrits/résultats -->
                         <h3 style="font-size: 1.2rem; margin-bottom: 1rem;">📋 Séries (${seriesData.series.length})</h3>
                         ${seriesData.series.length > 0 ? `
                             <div style="display: grid; gap: 1rem; margin-bottom: 2rem;">
-                                ${seriesData.series.map(s => `
-                                    <div style="background: var(--bg-card); border-radius: 8px; padding: 1rem;">
-                                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                                            <div style="font-weight: 600;">${s.series_name}</div>
+                                ${seriesData.series.map((s, idx) => `
+                                    <div style="background: var(--bg-card); border-radius: 8px; overflow: hidden;">
+                                        <div style="padding: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; border-bottom: 1px solid var(--border);">
+                                            <div style="font-weight: 600; font-size: 1.1rem;">${s.series_name}</div>
                                             <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: var(--text-muted);">
                                                 ${s.date ? `<span>📅 ${s.date}</span>` : ''}
                                                 ${s.time ? `<span>🕐 ${s.time}</span>` : ''}
                                                 <span>👥 ${s.inscriptions_count}${s.inscriptions_max ? '/' + s.inscriptions_max : ''}</span>
                                             </div>
                                         </div>
-                                        ${inscriptionsBySeries[s.series_name] && inscriptionsBySeries[s.series_name].length > 0 ? `
-                                            <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);">
-                                                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                                                    ${inscriptionsBySeries[s.series_name].slice(0, 10).map(i => `
-                                                        <span style="background: var(--bg-secondary); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
-                                                            ${i.player_name} <span style="color: var(--text-muted);">(${i.player_ranking || 'NC'})</span>
-                                                        </span>
-                                                    `).join('')}
-                                                    ${inscriptionsBySeries[s.series_name].length > 10 ? `<span style="color: var(--text-muted); font-size: 0.8rem;">+${inscriptionsBySeries[s.series_name].length - 10} autres</span>` : ''}
-                                                </div>
-                                            </div>
-                                        ` : ''}
+                                        
+                                        <!-- Onglets -->
+                                        <div style="display: flex; border-bottom: 1px solid var(--border);">
+                                            <button onclick="showSeriesTab(${idx}, 'inscriptions')" id="tab-inscriptions-${idx}" class="series-tab active" style="flex: 1; padding: 0.75rem; background: var(--bg-secondary); border: none; color: var(--text-primary); cursor: pointer; font-weight: 500;">
+                                                👥 Inscrits (${(inscriptionsBySeries[s.series_name] || []).length})
+                                            </button>
+                                            <button onclick="showSeriesTab(${idx}, 'results')" id="tab-results-${idx}" class="series-tab" style="flex: 1; padding: 0.75rem; background: transparent; border: none; color: var(--text-muted); cursor: pointer;">
+                                                🏆 Résultats (${(resultsBySeries[s.series_name] || []).length})
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Contenu -->
+                                        <div style="padding: 1rem;">
+                                            <div id="content-inscriptions-${idx}" class="series-content">${renderSeriesInscriptions(s.series_name)}</div>
+                                            <div id="content-results-${idx}" class="series-content" style="display: none;">${renderSeriesResults(s.series_name)}</div>
+                                        </div>
                                     </div>
                                 `).join('')}
                             </div>
                         ` : '<p style="color: var(--text-muted); margin-bottom: 2rem;">Aucune série disponible</p>'}
                         
-                        <!-- Toutes les inscriptions -->
-                        <h3 style="font-size: 1.2rem; margin-bottom: 1rem;">👥 Inscriptions (${inscriptionsData.inscriptions.length})</h3>
-                        ${inscriptionsData.inscriptions.length > 0 ? `
-                            <div style="background: var(--bg-card); border-radius: 8px; overflow: hidden;">
+                        <!-- Résumé global des résultats -->
+                        ${resultsData.results.length > 0 ? `
+                            <h3 style="font-size: 1.2rem; margin-bottom: 1rem;">🏆 Tous les résultats (${resultsData.results.length})</h3>
+                            <div style="background: var(--bg-card); border-radius: 8px; overflow: hidden; max-height: 500px; overflow-y: auto;">
                                 <table style="width: 100%; border-collapse: collapse;">
-                                    <thead>
-                                        <tr style="background: var(--bg-secondary);">
-                                            <th style="padding: 0.75rem; text-align: left; font-size: 0.85rem; color: var(--text-muted);">Joueur</th>
-                                            <th style="padding: 0.75rem; text-align: left; font-size: 0.85rem; color: var(--text-muted);">Club</th>
-                                            <th style="padding: 0.75rem; text-align: left; font-size: 0.85rem; color: var(--text-muted);">Classement</th>
+                                    <thead style="position: sticky; top: 0; background: var(--bg-secondary);">
+                                        <tr>
                                             <th style="padding: 0.75rem; text-align: left; font-size: 0.85rem; color: var(--text-muted);">Série</th>
+                                            <th style="padding: 0.75rem; text-align: left; font-size: 0.85rem; color: var(--text-muted);">Joueur 1</th>
+                                            <th style="padding: 0.75rem; text-align: center; font-size: 0.85rem; color: var(--text-muted);">Score</th>
+                                            <th style="padding: 0.75rem; text-align: right; font-size: 0.85rem; color: var(--text-muted);">Joueur 2</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        ${inscriptionsData.inscriptions.slice(0, 50).map(i => `
-                                            <tr style="border-top: 1px solid var(--border);">
-                                                <td style="padding: 0.75rem;">
-                                                    <div style="font-weight: 500;">${i.player_name}</div>
-                                                    <div style="font-size: 0.75rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">${i.player_licence}</div>
-                                                </td>
-                                                <td style="padding: 0.75rem; color: var(--text-secondary);">${i.player_club || '-'}</td>
-                                                <td style="padding: 0.75rem;"><span style="background: var(--accent-glow); padding: 0.2rem 0.5rem; border-radius: 4px;">${i.player_ranking || 'NC'}</span></td>
-                                                <td style="padding: 0.75rem; font-size: 0.85rem; color: var(--text-muted);">${i.series_name || '-'}</td>
-                                            </tr>
-                                        `).join('')}
+                                        ${resultsData.results.map(r => {
+                                            const isPlayer1Winner = r.winner_licence === r.player1_licence;
+                                            const isPlayer2Winner = r.winner_licence === r.player2_licence;
+                                            return `
+                                                <tr style="border-top: 1px solid var(--border);">
+                                                    <td style="padding: 0.75rem; font-size: 0.85rem; color: var(--text-muted);">${r.series_name || '-'}</td>
+                                                    <td style="padding: 0.75rem; font-weight: ${isPlayer1Winner ? '700' : '400'}; color: ${isPlayer1Winner ? 'var(--success)' : 'inherit'};">
+                                                        ${isPlayer1Winner ? '🏆 ' : ''}${r.player1_name || 'N/A'}
+                                                    </td>
+                                                    <td style="padding: 0.75rem; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: 600;">${r.score || '-'}</td>
+                                                    <td style="padding: 0.75rem; text-align: right; font-weight: ${isPlayer2Winner ? '700' : '400'}; color: ${isPlayer2Winner ? 'var(--success)' : 'inherit'};">
+                                                        ${r.player2_name || 'N/A'}${isPlayer2Winner ? ' 🏆' : ''}
+                                                    </td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
                                     </tbody>
                                 </table>
-                                ${inscriptionsData.inscriptions.length > 50 ? `<div style="padding: 1rem; text-align: center; color: var(--text-muted);">... et ${inscriptionsData.inscriptions.length - 50} autres inscriptions</div>` : ''}
                             </div>
-                        ` : '<p style="color: var(--text-muted);">Aucune inscription disponible</p>'}
+                        ` : ''}
                     </div>
                 `;
             } catch (e) {
                 console.error('Erreur chargement tournoi:', e);
                 grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--error); text-align: center; padding: 3rem;">Erreur: ${e.message}</p>`;
             }
+        }
+        
+        // Fonction pour basculer entre les onglets inscrits/résultats
+        function showSeriesTab(seriesIdx, tab) {
+            // Cacher tous les contenus de cette série
+            document.getElementById(`content-inscriptions-${seriesIdx}`).style.display = 'none';
+            document.getElementById(`content-results-${seriesIdx}`).style.display = 'none';
+            
+            // Désactiver tous les onglets
+            document.getElementById(`tab-inscriptions-${seriesIdx}`).style.background = 'transparent';
+            document.getElementById(`tab-inscriptions-${seriesIdx}`).style.color = 'var(--text-muted)';
+            document.getElementById(`tab-results-${seriesIdx}`).style.background = 'transparent';
+            document.getElementById(`tab-results-${seriesIdx}`).style.color = 'var(--text-muted)';
+            
+            // Afficher le contenu sélectionné
+            document.getElementById(`content-${tab}-${seriesIdx}`).style.display = 'block';
+            document.getElementById(`tab-${tab}-${seriesIdx}`).style.background = 'var(--bg-secondary)';
+            document.getElementById(`tab-${tab}-${seriesIdx}`).style.color = 'var(--text-primary)';
         }
         
         // Retour à la liste des tournois
