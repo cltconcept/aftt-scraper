@@ -758,7 +758,10 @@
                 <div id="tournament-detail-header" style="display: none; flex-direction: column; gap: 1rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                         <h2 style="font-size: 1.5rem; font-weight: 600;" id="tournament-detail-title">Tournoi</h2>
-                        <button id="back-to-tournaments-btn" class="nav-btn" style="text-decoration: none; display: inline-block;">← Retour aux tournois</button>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button id="rescrape-tournament-btn" class="btn btn-primary" style="display: inline-block;">🔄 Rescraper ce tournoi</button>
+                            <button id="back-to-tournaments-btn" class="nav-btn" style="text-decoration: none; display: inline-block;">← Retour aux tournois</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3180,8 +3183,46 @@
             }
         }
         
+        // Rescraper un seul tournoi
+        async function rescrapeTournament() {
+            if (!state.selectedTournament) {
+                showToast('❌ Aucun tournoi sélectionné', 'error');
+                return;
+            }
+            
+            const t_id = state.selectedTournament;
+            const btn = document.getElementById('rescrape-tournament-btn');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Scraping...';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/tournaments/${t_id}/scrape`, {
+                    method: 'POST'
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Erreur lors du scraping');
+                }
+                
+                const data = await res.json();
+                showToast(`✅ ${data.series_count} séries, ${data.inscriptions_count} inscriptions, ${data.results_count} résultats`, 'success');
+                
+                // Recharger les détails du tournoi
+                await showTournamentDetail(t_id);
+                
+            } catch (e) {
+                showToast(`❌ Erreur: ${e.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Rescraper ce tournoi';
+            }
+        }
+        
         // Event listeners pour les tournois
         document.getElementById('back-to-tournaments-btn').addEventListener('click', backToTournamentsList);
+        document.getElementById('rescrape-tournament-btn').addEventListener('click', rescrapeTournament);
         
         document.getElementById('tournament-level-select').addEventListener('change', async (e) => {
             await loadTournaments(e.target.value, document.getElementById('tournaments-search').value);
