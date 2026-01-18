@@ -323,53 +323,88 @@ def get_tournament_series(t_id: int) -> List[TournamentSeries]:
 
 def get_tournament_inscriptions(t_id: int) -> List[TournamentInscription]:
     """
-    Récupère les inscriptions d'un tournoi.
+    Récupère les inscriptions d'un tournoi depuis la page viewplayers.
+    
+    Format de la page: https://resultats.aftt.be/?menu=7&viewplayers=1&t_id=XXX
+    Colonnes: Série | Index | Nom | Club | Classement | Actions
+    Les inscriptions sont paginées (cur_page=1, 2, 3...).
     """
-    url = f"{BASE_URL}/?menu=7&viewplayers=1&t_id={t_id}"
-    html_content = fetch_page(url)
-    soup = BeautifulSoup(html_content, 'html.parser')
+    all_inscriptions = []
+    page = 1
     
-    inscriptions = []
-    
-    # Trouver le tableau des inscriptions
-    # Colonnes: Série, Index, Nom, Club, Classement, Actions
-    tables = soup.find_all('table')
-    
-    for table in tables:
-        headers = table.find_all('th')
-        header_texts = [h.get_text(strip=True) for h in headers]
+    while True:
+        if page == 1:
+            url = f"{BASE_URL}/?menu=7&viewplayers=1&t_id={t_id}"
+        else:
+            url = f"{BASE_URL}/?menu=7&viewplayers=1&t_id={t_id}&cur_page={page}"
         
-        if 'Index' in header_texts and 'Nom' in header_texts:
-            rows = table.find_all('tr')[1:]  # Skip header row
+        html_content = fetch_page(url)
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        inscriptions_on_page = []
+        
+        # Trouver le tableau des inscriptions
+        # Colonnes: Série, Index, Nom, Club, Classement, Actions
+        tables = soup.find_all('table')
+        
+        for table in tables:
+            headers = table.find_all('th')
+            header_texts = [h.get_text(strip=True) for h in headers]
             
-            for row in rows:
-                cells = row.find_all('td')
+            # Vérifier si c'est le bon tableau
+            if 'Index' in header_texts or 'Nom' in header_texts:
+                rows = table.find_all('tr')[1:]  # Skip header row
                 
-                if len(cells) < 5:
-                    continue
+                for row in rows:
+                    cells = row.find_all('td')
+                    
+                    # Format attendu: 6 colonnes (Série, Index, Nom, Club, Classement, Actions)
+                    if len(cells) < 5:
+                        continue
+                    
+                    series_name = cells[0].get_text(strip=True) if len(cells) > 0 else ""
+                    licence = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+                    name = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                    club = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                    ranking = cells[4].get_text(strip=True) if len(cells) > 4 else ""
+                    
+                    # Vérifier que ce n'est pas une ligne de header ou pagination
+                    if not licence or not name:
+                        continue
+                    if series_name.lower() in ['série', 'serie', 'series']:
+                        continue
+                    
+                    inscription = TournamentInscription(
+                        tournament_id=t_id,
+                        series_name=series_name,
+                        player_licence=licence,
+                        player_name=name,
+                        player_club=club if club else None,
+                        player_ranking=ranking if ranking else None
+                    )
+                    inscriptions_on_page.append(inscription)
                 
-                series_name = cells[0].get_text(strip=True) if len(cells) > 0 else ""
-                licence = cells[1].get_text(strip=True) if len(cells) > 1 else ""
-                name = cells[2].get_text(strip=True) if len(cells) > 2 else ""
-                club = cells[3].get_text(strip=True) if len(cells) > 3 else ""
-                ranking = cells[4].get_text(strip=True) if len(cells) > 4 else ""
-                
-                if not licence or not name:
-                    continue
-                
-                inscription = TournamentInscription(
-                    tournament_id=t_id,
-                    series_name=series_name,
-                    player_licence=licence,
-                    player_name=name,
-                    player_club=club if club else None,
-                    player_ranking=ranking if ranking else None
-                )
-                inscriptions.append(inscription)
-            
+                break
+        
+        all_inscriptions.extend(inscriptions_on_page)
+        
+        # Vérifier s'il y a une page suivante
+        next_link = soup.find('a', string=re.compile(r'\[Suivant\]', re.IGNORECASE))
+        if not next_link:
+            next_page_link = soup.find('a', href=re.compile(f'cur_page={page + 1}'))
+            if not next_page_link:
+                break
+        
+        page += 1
+        time.sleep(0.2)  # Rate limiting
+        
+        # Sécurité: max 50 pages
+        if page > 50:
+            logger.warning(f"Arrêt à la page 50 pour les inscriptions du tournoi {t_id}")
             break
     
-    return inscriptions
+    logger.info(f"Tournoi {t_id}: {len(all_inscriptions)} inscriptions récupérées sur {page} page(s)")
+    return all_inscriptions
 
 
 def get_tournament_results(t_id: int) -> List[TournamentResult]:
