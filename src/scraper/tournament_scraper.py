@@ -374,70 +374,134 @@ def get_tournament_inscriptions(t_id: int) -> List[TournamentInscription]:
 
 def get_tournament_results(t_id: int) -> List[TournamentResult]:
     """
-    Récupère les résultats d'un tournoi.
+    Récupère les résultats d'un tournoi depuis la page viewresults.
     
-    Note: La structure exacte des résultats peut varier.
-    Cette fonction essaie de parser le format le plus commun.
+    Format de la page: https://resultats.aftt.be/?menu=7&viewresults=1&t_id=XXX
+    Le tableau contient: Série | Joueur | Nom adversaire | Résultats
+    Le vainqueur est en gras (balise <b> ou <strong>).
+    Les résultats sont paginés (cur_page=1, 2, 3...).
     """
-    url = f"{BASE_URL}/?menu=7&viewresults=1&t_id={t_id}"
-    html_content = fetch_page(url)
-    soup = BeautifulSoup(html_content, 'html.parser')
+    all_results = []
+    page = 1
     
-    results = []
-    
-    # Chercher les tableaux de résultats
-    # Le format peut être différent selon le type de tournoi
-    tables = soup.find_all('table')
-    
-    current_series = ""
-    current_round = ""
-    
-    for table in tables:
-        rows = table.find_all('tr')
+    while True:
+        if page == 1:
+            url = f"{BASE_URL}/?menu=7&viewresults=1&t_id={t_id}"
+        else:
+            url = f"{BASE_URL}/?menu=7&viewresults=1&t_id={t_id}&cur_page={page}"
         
-        for row in rows:
-            cells = row.find_all('td')
+        html_content = fetch_page(url)
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        results_on_page = []
+        
+        # Chercher le tableau de résultats
+        # Format: Série | Joueur | Nom adversaire | Résultats
+        tables = soup.find_all('table')
+        
+        for table in tables:
+            rows = table.find_all('tr')
             
-            # Détecter un header de série
-            if len(cells) == 1:
-                text = cells[0].get_text(strip=True)
-                if text and not text.startswith('©'):
-                    # Peut être un nom de série ou un tour
-                    if any(x in text.lower() for x in ['finale', 'demi', 'quart', 'poule', 'tour', '1/', '2/', '4/', '8/']):
-                        current_round = text
-                    else:
-                        current_series = text
-                continue
-            
-            # Chercher les résultats de match
-            # Format typique: Joueur1 vs Joueur2, Score, ou variations
-            if len(cells) >= 2:
-                # Essayer différents formats
-                cell_texts = [c.get_text(strip=True) for c in cells]
+            for row in rows:
+                cells = row.find_all('td')
                 
-                # Format avec score explicite
-                for i, text in enumerate(cell_texts):
-                    # Chercher un pattern de score comme "3-1", "3-0", etc.
-                    score_match = re.search(r'\b(\d)-(\d)\b', text)
-                    if score_match:
-                        # Essayer d'extraire les joueurs
-                        player1_name = cell_texts[0] if i > 0 else ""
-                        player2_name = cell_texts[i+1] if i+1 < len(cell_texts) else ""
-                        score = text
+                # Format attendu: 4 colonnes (Série, Joueur1, Joueur2, Score)
+                if len(cells) == 4:
+                    series_name = cells[0].get_text(strip=True)
+                    player1_cell = cells[1]
+                    player2_cell = cells[2]
+                    score_cell = cells[3]
+                    
+                    # Extraire les noms de joueurs
+                    player1_text = player1_cell.get_text(strip=True)
+                    player2_text = player2_cell.get_text(strip=True)
+                    score = score_cell.get_text(strip=True)
+                    
+                    # Vérifier si c'est un header ou une ligne de données
+                    if not series_name or series_name.lower() in ['série', 'serie', 'series']:
+                        continue
+                    
+                    # Vérifier le format du score (X/Y ou X-Y)
+                    if not re.search(r'\d[/\-]\d', score):
+                        continue
+                    
+                    # Déterminer le vainqueur (en gras)
+                    winner_licence = None
+                    player1_is_winner = player1_cell.find('b') is not None or player1_cell.find('strong') is not None
+                    player2_is_winner = player2_cell.find('b') is not None or player2_cell.find('strong') is not None
+                    
+                    # Parser les informations du joueur
+                    # Format: "NOM PRENOM Classement (Club)"
+                    def parse_player_info(text):
+                        # Extraire le club entre parenthèses
+                        club_match = re.search(r'\(([^)]+)\)\s*$', text)
+                        club = club_match.group(1) if club_match else None
                         
-                        if player1_name and player2_name:
-                            result = TournamentResult(
-                                tournament_id=t_id,
-                                series_name=current_series,
-                                player1_name=player1_name,
-                                player2_name=player2_name,
-                                score=score,
-                                round=current_round if current_round else None
-                            )
-                            results.append(result)
-                        break
+                        # Retirer le club du texte
+                        name_ranking = re.sub(r'\([^)]+\)\s*$', '', text).strip()
+                        
+                        # Extraire le classement (NC, E0, E2, D6, C4, B2, etc.)
+                        ranking_match = re.search(r'\b(NC|E\d|D\d|C\d|B\d|A\d?)\b', name_ranking)
+                        ranking = ranking_match.group(1) if ranking_match else None
+                        
+                        # Le nom est tout ce qui reste
+                        if ranking:
+                            name = re.sub(r'\b(NC|E\d|D\d|C\d|B\d|A\d?)\b', '', name_ranking).strip()
+                        else:
+                            name = name_ranking
+                        
+                        # Extraire la licence du club (ex: H448 de "H448 Cleo Erquelinnes")
+                        licence = None
+                        if club:
+                            licence_match = re.match(r'^([A-Z]\d{3})', club)
+                            if licence_match:
+                                licence = licence_match.group(1)
+                        
+                        return name, ranking, club, licence
+                    
+                    p1_name, p1_ranking, p1_club, p1_licence = parse_player_info(player1_text)
+                    p2_name, p2_ranking, p2_club, p2_licence = parse_player_info(player2_text)
+                    
+                    # Déterminer le vainqueur
+                    if player1_is_winner and p1_licence:
+                        winner_licence = p1_licence
+                    elif player2_is_winner and p2_licence:
+                        winner_licence = p2_licence
+                    
+                    if p1_name and p2_name:
+                        result = TournamentResult(
+                            tournament_id=t_id,
+                            series_name=series_name,
+                            player1_name=p1_name,
+                            player1_licence=p1_licence,
+                            player2_name=p2_name,
+                            player2_licence=p2_licence,
+                            score=score,
+                            winner_licence=winner_licence
+                        )
+                        results_on_page.append(result)
+        
+        all_results.extend(results_on_page)
+        
+        # Vérifier s'il y a une page suivante
+        # Chercher le lien "[Suivant]"
+        next_link = soup.find('a', string=re.compile(r'\[Suivant\]', re.IGNORECASE))
+        if not next_link:
+            # Ou chercher un lien vers la page suivante
+            next_page_link = soup.find('a', href=re.compile(f'cur_page={page + 1}'))
+            if not next_page_link:
+                break
+        
+        page += 1
+        time.sleep(0.2)  # Rate limiting
+        
+        # Sécurité: max 50 pages
+        if page > 50:
+            logger.warning(f"Arrêt à la page 50 pour le tournoi {t_id}")
+            break
     
-    return results
+    logger.info(f"Tournoi {t_id}: {len(all_results)} résultats récupérés sur {page} page(s)")
+    return all_results
 
 
 def get_tournament_details(t_id: int) -> Dict[str, Any]:
