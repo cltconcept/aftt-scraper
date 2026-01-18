@@ -15,11 +15,12 @@ ENV AFTT_DB_PATH=/app/data/aftt.db
 # Créer le répertoire de travail
 WORKDIR /app
 
-# Installer les dépendances système pour Playwright
+# Installer les dépendances système pour Playwright + outils système de base
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     curl \
     gnupg \
+    coreutils \
     libnss3 \
     libatk-bridge2.0-0 \
     libdrm2 \
