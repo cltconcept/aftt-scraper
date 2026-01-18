@@ -658,6 +658,7 @@
             <nav>
                 <button class="nav-btn active" data-section="clubs">Clubs</button>
                 <button class="nav-btn" data-section="players">Joueurs</button>
+                <button class="nav-btn" data-section="tournaments">🏆 Tournois</button>
                 <button class="nav-btn" data-section="admin">⚙️ Admin</button>
                 <a href="api-docs.html" class="nav-btn" style="text-decoration: none; display: inline-block;">📚 API Docs</a>
             </nav>
@@ -686,6 +687,13 @@
                 <div class="stat-info">
                     <h3 id="stat-members">0</h3>
                     <p>Joueurs actifs</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(217, 70, 239, 0.2);">🏆</div>
+                <div class="stat-info">
+                    <h3 id="stat-tournaments">0</h3>
+                    <p>Tournois</p>
                 </div>
             </div>
         </div>
@@ -728,6 +736,36 @@
                 </div>
             </div>
             <div class="data-grid" id="players-grid"></div>
+        </section>
+
+        <!-- Tournaments Section -->
+        <section id="tournaments-section" class="section">
+            <div id="tournaments-header" style="margin-bottom: 1.5rem;">
+                <div id="tournaments-list-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600;">🏆 Tournois</h2>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                        <button onclick="scrapeTournaments()" class="btn btn-primary" id="scrape-tournaments-btn">
+                            🔄 Scraper les tournois
+                        </button>
+                        <select id="tournament-level-select" class="search-input" style="padding: 0.5rem 1rem; cursor: pointer; min-width: 180px;">
+                            <option value="">Tous les niveaux</option>
+                        </select>
+                        <div class="search-wrapper" style="max-width: 300px;">
+                            <input type="text" class="search-input" id="tournaments-search" placeholder="Rechercher un tournoi...">
+                        </div>
+                    </div>
+                </div>
+                <div id="tournament-detail-header" style="display: none; flex-direction: column; gap: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                        <h2 style="font-size: 1.5rem; font-weight: 600;" id="tournament-detail-title">Tournoi</h2>
+                        <button id="back-to-tournaments-btn" class="nav-btn" style="text-decoration: none; display: inline-block;">← Retour aux tournois</button>
+                    </div>
+                </div>
+            </div>
+            <div id="tournaments-scrape-status" style="display: none; background: var(--bg-card); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                <!-- Statut du scraping des tournois -->
+            </div>
+            <div class="data-grid" id="tournaments-grid"></div>
         </section>
 
         <!-- Admin Section -->
@@ -896,11 +934,29 @@
                     document.getElementById('stat-players').textContent = Object.keys(state.players).length;
                     document.getElementById('stat-members').textContent = Object.keys(state.players).length;
                 }
+                
+                // Tournois : récupérer le nombre depuis l'API
+                try {
+                    const tournamentsRes = await fetch(`${API_BASE_URL}/api/tournaments?limit=1`);
+                    if (tournamentsRes.ok) {
+                        const data = await tournamentsRes.json();
+                        // L'API retourne {count: N, tournaments: [...]}
+                        // Mais count est le nombre retourné, pas le total. On doit faire une requête sans limit
+                        const allTournamentsRes = await fetch(`${API_BASE_URL}/api/tournaments`);
+                        if (allTournamentsRes.ok) {
+                            const allData = await allTournamentsRes.json();
+                            document.getElementById('stat-tournaments').textContent = allData.count || 0;
+                        }
+                    }
+                } catch (e) {
+                    document.getElementById('stat-tournaments').textContent = '0';
+                }
             } catch (e) {
                 // En cas d'erreur, utiliser les données locales
                 document.getElementById('stat-clubs').textContent = state.clubs.length;
                 document.getElementById('stat-players').textContent = Object.keys(state.players).length;
                 document.getElementById('stat-members').textContent = Object.keys(state.players).length;
+                document.getElementById('stat-tournaments').textContent = '0';
             }
         }
 
@@ -2698,6 +2754,357 @@
             } catch (e) {
                 alert(`Erreur lors du chargement des détails: ${e.message}`);
             }
+        }
+
+        // =============================================================================
+        // TOURNAMENTS
+        // =============================================================================
+        
+        // State pour les tournois
+        state.tournaments = [];
+        state.tournamentLevels = [];
+        state.selectedTournament = null;
+        state.tournamentViewMode = 'list'; // 'list' ou 'detail'
+        
+        // Charger les tournois depuis l'API
+        async function loadTournaments(level = '', search = '') {
+            try {
+                let url = `${API_BASE_URL}/api/tournaments?limit=500`;
+                if (level) url += `&level=${encodeURIComponent(level)}`;
+                if (search) url += `&search=${encodeURIComponent(search)}`;
+                
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    state.tournaments = data.tournaments || [];
+                    console.log(`✅ ${state.tournaments.length} tournois chargés`);
+                }
+            } catch (e) {
+                console.error('Erreur lors du chargement des tournois:', e);
+            }
+        }
+        
+        // Charger les niveaux de tournois
+        async function loadTournamentLevels() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/tournaments/levels`);
+                if (res.ok) {
+                    const data = await res.json();
+                    state.tournamentLevels = data.levels || [];
+                    
+                    // Remplir le select
+                    const select = document.getElementById('tournament-level-select');
+                    if (select) {
+                        select.innerHTML = '<option value="">Tous les niveaux</option>';
+                        state.tournamentLevels.forEach(level => {
+                            select.innerHTML += `<option value="${level}">${level}</option>`;
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('Erreur lors du chargement des niveaux:', e);
+            }
+        }
+        
+        // Afficher les tournois
+        function renderTournaments() {
+            const grid = document.getElementById('tournaments-grid');
+            if (!grid) return;
+            
+            if (!state.tournaments || state.tournaments.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🏆</div>
+                        <p>Aucun tournoi trouvé</p>
+                        <p style="font-size: 0.85rem; margin-top: 0.5rem;">Cliquez sur "Scraper les tournois" pour récupérer la liste</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = state.tournaments.map(t => `
+                <div class="card" onclick="showTournamentDetail(${t.t_id})" style="cursor: pointer;">
+                    <div class="card-title" style="display: flex; justify-content: space-between; align-items: start; gap: 0.5rem;">
+                        <span style="flex: 1;">${t.name}</span>
+                        <span style="font-size: 0.75rem; background: var(--accent-primary); color: white; padding: 0.2rem 0.5rem; border-radius: 4px; white-space: nowrap;">${t.series_count} série${t.series_count > 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="card-subtitle" style="margin-top: 0.5rem;">
+                        <span style="color: var(--accent-secondary);">${t.level || 'N/A'}</span>
+                    </div>
+                    <div class="card-subtitle" style="margin-top: 0.25rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span>📅 ${t.date_start || 'N/A'}${t.date_end && t.date_end !== t.date_start ? ' - ' + t.date_end : ''}</span>
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted);">${t.reference || ''}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Afficher les détails d'un tournoi
+        async function showTournamentDetail(t_id) {
+            const grid = document.getElementById('tournaments-grid');
+            const listHeader = document.getElementById('tournaments-list-header');
+            const detailHeader = document.getElementById('tournament-detail-header');
+            
+            // Changer la vue
+            state.tournamentViewMode = 'detail';
+            state.selectedTournament = t_id;
+            listHeader.style.display = 'none';
+            detailHeader.style.display = 'flex';
+            
+            // Afficher loading
+            grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 3rem;">Chargement des détails...</p>`;
+            
+            try {
+                // Charger les infos du tournoi
+                const [tournamentRes, seriesRes, inscriptionsRes] = await Promise.all([
+                    fetch(`${API_BASE_URL}/api/tournaments/${t_id}`),
+                    fetch(`${API_BASE_URL}/api/tournaments/${t_id}/series`),
+                    fetch(`${API_BASE_URL}/api/tournaments/${t_id}/inscriptions`)
+                ]);
+                
+                const tournament = tournamentRes.ok ? await tournamentRes.json() : null;
+                const seriesData = seriesRes.ok ? await seriesRes.json() : { series: [] };
+                const inscriptionsData = inscriptionsRes.ok ? await inscriptionsRes.json() : { inscriptions: [] };
+                
+                if (!tournament) {
+                    grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--error); text-align: center; padding: 3rem;">Tournoi non trouvé</p>`;
+                    return;
+                }
+                
+                document.getElementById('tournament-detail-title').textContent = tournament.name;
+                
+                // Grouper les inscriptions par série
+                const inscriptionsBySeries = {};
+                inscriptionsData.inscriptions.forEach(i => {
+                    if (!inscriptionsBySeries[i.series_name]) {
+                        inscriptionsBySeries[i.series_name] = [];
+                    }
+                    inscriptionsBySeries[i.series_name].push(i);
+                });
+                
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1;">
+                        <!-- Infos tournoi -->
+                        <div style="background: var(--bg-card); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">Niveau</div>
+                                    <div style="font-weight: 600;">${tournament.level || 'N/A'}</div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">Date</div>
+                                    <div style="font-weight: 600;">${tournament.date_start || 'N/A'}${tournament.date_end && tournament.date_end !== tournament.date_start ? ' - ' + tournament.date_end : ''}</div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">Référence</div>
+                                    <div style="font-weight: 600; font-family: 'JetBrains Mono', monospace;">${tournament.reference || 'N/A'}</div>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">Séries</div>
+                                    <div style="font-weight: 600;">${tournament.series_count || seriesData.series.length}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Séries -->
+                        <h3 style="font-size: 1.2rem; margin-bottom: 1rem;">📋 Séries (${seriesData.series.length})</h3>
+                        ${seriesData.series.length > 0 ? `
+                            <div style="display: grid; gap: 1rem; margin-bottom: 2rem;">
+                                ${seriesData.series.map(s => `
+                                    <div style="background: var(--bg-card); border-radius: 8px; padding: 1rem;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                                            <div style="font-weight: 600;">${s.series_name}</div>
+                                            <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: var(--text-muted);">
+                                                ${s.date ? `<span>📅 ${s.date}</span>` : ''}
+                                                ${s.time ? `<span>🕐 ${s.time}</span>` : ''}
+                                                <span>👥 ${s.inscriptions_count}${s.inscriptions_max ? '/' + s.inscriptions_max : ''}</span>
+                                            </div>
+                                        </div>
+                                        ${inscriptionsBySeries[s.series_name] && inscriptionsBySeries[s.series_name].length > 0 ? `
+                                            <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);">
+                                                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                                    ${inscriptionsBySeries[s.series_name].slice(0, 10).map(i => `
+                                                        <span style="background: var(--bg-secondary); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
+                                                            ${i.player_name} <span style="color: var(--text-muted);">(${i.player_ranking || 'NC'})</span>
+                                                        </span>
+                                                    `).join('')}
+                                                    ${inscriptionsBySeries[s.series_name].length > 10 ? `<span style="color: var(--text-muted); font-size: 0.8rem;">+${inscriptionsBySeries[s.series_name].length - 10} autres</span>` : ''}
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<p style="color: var(--text-muted); margin-bottom: 2rem;">Aucune série disponible</p>'}
+                        
+                        <!-- Toutes les inscriptions -->
+                        <h3 style="font-size: 1.2rem; margin-bottom: 1rem;">👥 Inscriptions (${inscriptionsData.inscriptions.length})</h3>
+                        ${inscriptionsData.inscriptions.length > 0 ? `
+                            <div style="background: var(--bg-card); border-radius: 8px; overflow: hidden;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: var(--bg-secondary);">
+                                            <th style="padding: 0.75rem; text-align: left; font-size: 0.85rem; color: var(--text-muted);">Joueur</th>
+                                            <th style="padding: 0.75rem; text-align: left; font-size: 0.85rem; color: var(--text-muted);">Club</th>
+                                            <th style="padding: 0.75rem; text-align: left; font-size: 0.85rem; color: var(--text-muted);">Classement</th>
+                                            <th style="padding: 0.75rem; text-align: left; font-size: 0.85rem; color: var(--text-muted);">Série</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${inscriptionsData.inscriptions.slice(0, 50).map(i => `
+                                            <tr style="border-top: 1px solid var(--border);">
+                                                <td style="padding: 0.75rem;">
+                                                    <div style="font-weight: 500;">${i.player_name}</div>
+                                                    <div style="font-size: 0.75rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">${i.player_licence}</div>
+                                                </td>
+                                                <td style="padding: 0.75rem; color: var(--text-secondary);">${i.player_club || '-'}</td>
+                                                <td style="padding: 0.75rem;"><span style="background: var(--accent-glow); padding: 0.2rem 0.5rem; border-radius: 4px;">${i.player_ranking || 'NC'}</span></td>
+                                                <td style="padding: 0.75rem; font-size: 0.85rem; color: var(--text-muted);">${i.series_name || '-'}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                                ${inscriptionsData.inscriptions.length > 50 ? `<div style="padding: 1rem; text-align: center; color: var(--text-muted);">... et ${inscriptionsData.inscriptions.length - 50} autres inscriptions</div>` : ''}
+                            </div>
+                        ` : '<p style="color: var(--text-muted);">Aucune inscription disponible</p>'}
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Erreur chargement tournoi:', e);
+                grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--error); text-align: center; padding: 3rem;">Erreur: ${e.message}</p>`;
+            }
+        }
+        
+        // Retour à la liste des tournois
+        function backToTournamentsList() {
+            state.tournamentViewMode = 'list';
+            state.selectedTournament = null;
+            
+            document.getElementById('tournaments-list-header').style.display = 'flex';
+            document.getElementById('tournament-detail-header').style.display = 'none';
+            
+            renderTournaments();
+        }
+        
+        // Scraper les tournois
+        async function scrapeTournaments() {
+            if (!confirm('🏆 Lancer le scraping des tournois ?\n\nCela peut prendre 15-30 minutes pour récupérer tous les tournois, séries et inscriptions.')) {
+                return;
+            }
+            
+            const btn = document.getElementById('scrape-tournaments-btn');
+            const statusDiv = document.getElementById('tournaments-scrape-status');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Scraping en cours...';
+            statusDiv.style.display = 'block';
+            
+            try {
+                // Lancer le scraping
+                const res = await fetch(`${API_BASE_URL}/api/scrape/tournaments`, {
+                    method: 'POST'
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail?.error || 'Erreur lors du lancement');
+                }
+                
+                const data = await res.json();
+                showToast(`✅ Scraping lancé: ${data.task_id}`, 'success');
+                
+                // Polling du statut
+                const pollStatus = async () => {
+                    try {
+                        const statusRes = await fetch(`${API_BASE_URL}/api/scrape/tournaments/status`);
+                        if (statusRes.ok) {
+                            const status = await statusRes.json();
+                            
+                            statusDiv.innerHTML = `
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                    <h3 style="font-size: 1.1rem;">🏆 Scraping des tournois</h3>
+                                    <span style="background: ${status.running ? 'var(--warning)' : status.status === 'success' ? 'var(--success)' : 'var(--error)'}; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem;">
+                                        ${status.running ? '⏳ En cours' : status.status === 'success' ? '✅ Terminé' : '❌ Erreur'}
+                                    </span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                                    <div>
+                                        <div style="font-size: 1.5rem; font-weight: bold;">${status.completed_tournaments || 0}</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-muted);">/ ${status.total_tournaments || '?'} tournois</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 1.5rem; font-weight: bold;">${status.total_series || 0}</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-muted);">séries</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 1.5rem; font-weight: bold;">${status.total_inscriptions || 0}</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-muted);">inscriptions</div>
+                                    </div>
+                                </div>
+                                ${status.current_tournament ? `<div style="color: var(--text-muted); font-size: 0.85rem;">En cours: ${status.current_tournament}</div>` : ''}
+                                <div style="background: var(--bg-secondary); border-radius: 8px; height: 8px; margin-top: 1rem; overflow: hidden;">
+                                    <div style="background: var(--accent-primary); height: 100%; width: ${status.progress_percent || 0}%; transition: width 0.3s;"></div>
+                                </div>
+                            `;
+                            
+                            if (status.running) {
+                                setTimeout(pollStatus, 3000);
+                            } else {
+                                btn.disabled = false;
+                                btn.textContent = '🔄 Scraper les tournois';
+                                
+                                // Recharger les tournois
+                                await loadTournaments();
+                                renderTournaments();
+                                updateStats();
+                                
+                                if (status.status === 'success') {
+                                    showToast(`✅ Scraping terminé: ${status.total_tournaments} tournois`, 'success');
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Erreur polling:', e);
+                    }
+                };
+                
+                setTimeout(pollStatus, 2000);
+                
+            } catch (e) {
+                btn.disabled = false;
+                btn.textContent = '🔄 Scraper les tournois';
+                showToast(`❌ Erreur: ${e.message}`, 'error');
+                statusDiv.innerHTML = `<p style="color: var(--error);">Erreur: ${e.message}</p>`;
+            }
+        }
+        
+        // Event listeners pour les tournois
+        document.getElementById('back-to-tournaments-btn').addEventListener('click', backToTournamentsList);
+        
+        document.getElementById('tournament-level-select').addEventListener('change', async (e) => {
+            await loadTournaments(e.target.value, document.getElementById('tournaments-search').value);
+            renderTournaments();
+        });
+        
+        document.getElementById('tournaments-search').addEventListener('input', async (e) => {
+            // Debounce
+            clearTimeout(window.tournamentsSearchTimeout);
+            window.tournamentsSearchTimeout = setTimeout(async () => {
+                await loadTournaments(document.getElementById('tournament-level-select').value, e.target.value);
+                renderTournaments();
+            }, 300);
+        });
+        
+        // Charger les tournois quand on va sur la section
+        const originalNavHandler = document.querySelector('.nav-btn[data-section="tournaments"]');
+        if (originalNavHandler) {
+            originalNavHandler.addEventListener('click', async () => {
+                if (state.tournaments.length === 0) {
+                    await loadTournaments();
+                    await loadTournamentLevels();
+                    renderTournaments();
+                }
+            });
         }
 
         // Initial render
