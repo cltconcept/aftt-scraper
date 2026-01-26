@@ -716,6 +716,7 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                         <h2 style="font-size: 1.5rem; font-weight: 600;" id="clubs-view-title">Clubs</h2>
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button id="refresh-clubs-names-btn" class="nav-btn" style="text-decoration: none; display: inline-block;" title="Corrige les noms N/A">🔧 Corriger noms</button>
                             <button id="reload-clubs-btn" class="nav-btn" style="text-decoration: none; display: inline-block;">🔄 Recharger</button>
                             <button id="back-to-regions-btn" class="nav-btn" style="text-decoration: none; display: inline-block;">← Retour aux régions</button>
                         </div>
@@ -1509,6 +1510,41 @@
             }
         }
         
+        // Refresh clubs names (fix N/A)
+        async function refreshClubsNames() {
+            const btn = document.getElementById('refresh-clubs-names-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Chargement...';
+            btn.disabled = true;
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/scrape/refresh-clubs`, {
+                    method: 'POST'
+                });
+                
+                if (!res.ok) throw new Error('Erreur lors du rafraîchissement');
+                
+                const data = await res.json();
+                showToast(`✅ ${data.message}`, 'success');
+                
+                // Recharger les clubs pour voir les noms corrigés
+                await loadClubsForProvince(state.selectedProvince || '');
+                
+                if (state.viewMode === 'clubs') {
+                    renderClubs(document.getElementById('clubs-search')?.value || '');
+                } else {
+                    renderRegions();
+                }
+                
+            } catch (e) {
+                console.error('Erreur:', e);
+                showToast('❌ Erreur lors du rafraîchissement des clubs', 'error');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+        
         // Reload clubs for selected region
         async function reloadClubsForSelectedRegion() {
             // Recharger les clubs de la région actuellement affichée
@@ -2204,6 +2240,9 @@
         
         // Reload clubs button
         document.getElementById('reload-clubs-btn').addEventListener('click', reloadClubsForSelectedRegion);
+        
+        // Refresh clubs names button (fix N/A names)
+        document.getElementById('refresh-clubs-names-btn').addEventListener('click', refreshClubsNames);
         
         // Region select change
         document.getElementById('region-select').addEventListener('change', async (e) => {

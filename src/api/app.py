@@ -1286,6 +1286,39 @@ async def cancel_scrape():
     }
 
 
+@app.post("/api/scrape/refresh-clubs", tags=["Scraping"])
+async def refresh_clubs_names():
+    """
+    Rafraîchit les noms des clubs depuis l'AFTT.
+    Utile pour corriger les clubs avec un nom manquant (N/A).
+    """
+    try:
+        # Récupérer tous les clubs depuis l'AFTT
+        all_clubs_from_web = get_all_clubs()
+        
+        updated_count = 0
+        for club_obj in all_clubs_from_web:
+            club_dict = club_obj.to_dict() if hasattr(club_obj, 'to_dict') else {
+                'code': club_obj.code,
+                'name': club_obj.name,
+                'province': club_obj.province
+            }
+            
+            # Insérer/mettre à jour le club dans la base
+            if club_dict.get('name'):
+                queries.insert_club(club_dict)
+                updated_count += 1
+        
+        return {
+            "status": "success",
+            "message": f"{updated_count} clubs mis à jour",
+            "total_clubs": len(all_clubs_from_web)
+        }
+    except Exception as e:
+        logger.error(f"Erreur lors du rafraîchissement des clubs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # =============================================================================
 # ROUTES: Tournaments
 # =============================================================================

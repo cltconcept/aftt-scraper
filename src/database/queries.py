@@ -45,28 +45,34 @@ def insert_club(club: Dict[str, Any], db: sqlite3.Connection = None) -> None:
         updated_at = CURRENT_TIMESTAMP
     """
     
-    # Valeurs par défaut
+    # Valeurs par défaut - convertir les chaînes vides en None pour que COALESCE fonctionne
+    def normalize(val):
+        """Convertit les chaînes vides en None."""
+        if val is None or (isinstance(val, str) and val.strip() == ''):
+            return None
+        return val
+    
     data = {
         'code': club.get('code'),
-        'name': club.get('name'),
-        'province': club.get('province'),
-        'full_name': club.get('full_name'),
-        'email': club.get('email'),
-        'phone': club.get('phone'),
-        'status': club.get('status'),
-        'website': club.get('website'),
+        'name': normalize(club.get('name')),
+        'province': normalize(club.get('province')),
+        'full_name': normalize(club.get('full_name')),
+        'email': normalize(club.get('email')),
+        'phone': normalize(club.get('phone')),
+        'status': normalize(club.get('status')),
+        'website': normalize(club.get('website')),
         'has_shower': club.get('has_shower'),
-        'venue_name': club.get('venue_name'),
-        'venue_address': club.get('venue_address'),
-        'venue_phone': club.get('venue_phone'),
+        'venue_name': normalize(club.get('venue_name')),
+        'venue_address': normalize(club.get('venue_address')),
+        'venue_phone': normalize(club.get('venue_phone')),
         'venue_pmr': club.get('venue_pmr'),
-        'venue_remarks': club.get('venue_remarks'),
+        'venue_remarks': normalize(club.get('venue_remarks')),
         'teams_men': club.get('teams_men', 0),
         'teams_women': club.get('teams_women', 0),
         'teams_youth': club.get('teams_youth', 0),
         'teams_veterans': club.get('teams_veterans', 0),
-        'label': club.get('label'),
-        'palette': club.get('palette'),
+        'label': normalize(club.get('label')),
+        'palette': normalize(club.get('palette')),
     }
     
     if db:
