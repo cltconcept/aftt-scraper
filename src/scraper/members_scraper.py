@@ -190,13 +190,16 @@ def extract_club_info_from_html(soup: BeautifulSoup, club_code: str, club_name: 
     return info.to_dict()
 
 
-def fetch_club_members_page(club_code: str) -> str:
+def fetch_club_members_page(club_code: str, max_retries: int = 3) -> str:
     """
     Récupère le contenu HTML de la page des membres d'un club.
+    Inclut des retries avec délai exponentiel en cas d'échec.
     
     La page utilise un formulaire POST avec le paramètre 'indice'.
     Source: https://data.aftt.be/annuaire/membres.php
     """
+    import time
+    
     logger.info(f"Recuperation des membres du club {club_code} via POST...")
     
     headers = {
@@ -209,15 +212,26 @@ def fetch_club_members_page(club_code: str) -> str:
     # Le formulaire utilise POST avec le paramètre 'indice'
     data = {'indice': club_code}
     
-    try:
-        response = requests.post(AFTT_MEMBERS_URL, data=data, headers=headers, timeout=30)
-        response.raise_for_status()
-        response.encoding = response.apparent_encoding
-        logger.info(f"Page recuperee avec succes (status: {response.status_code})")
-        return response.text
-    except requests.RequestException as e:
-        logger.error(f"Erreur lors de la recuperation de la page : {e}")
-        raise
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            # Petit délai entre les requêtes pour ne pas surcharger le serveur
+            if attempt > 0:
+                delay = 2 ** attempt  # 2s, 4s, 8s...
+                logger.info(f"Retry {attempt + 1}/{max_retries} après {delay}s...")
+                time.sleep(delay)
+            
+            response = requests.post(AFTT_MEMBERS_URL, data=data, headers=headers, timeout=30)
+            response.raise_for_status()
+            response.encoding = response.apparent_encoding
+            logger.info(f"Page recuperee avec succes (status: {response.status_code})")
+            return response.text
+        except requests.RequestException as e:
+            last_error = e
+            logger.warning(f"Tentative {attempt + 1}/{max_retries} echouee: {e}")
+    
+    logger.error(f"Echec apres {max_retries} tentatives: {last_error}")
+    raise last_error
 
 
 def extract_members_from_html(html_content: str, club_code: str) -> dict:

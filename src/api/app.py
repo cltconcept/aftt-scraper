@@ -171,6 +171,57 @@ async def get_active_players_count():
     }
 
 
+@app.get("/api/stats/detailed", tags=["Stats"])
+async def get_detailed_stats():
+    """Retourne des statistiques détaillées pour le diagnostic."""
+    stats = get_stats()
+    
+    # Ajouter des stats supplémentaires
+    from src.database.connection import get_db
+    with get_db() as db:
+        # Matchs par type
+        cursor = db.execute("SELECT fiche_type, COUNT(*) FROM matches GROUP BY fiche_type")
+        matches_by_type = {row[0]: row[1] for row in cursor.fetchall()}
+        
+        # Matchs récents (derniers 7 jours au format DD/MM/YYYY)
+        cursor = db.execute("""
+            SELECT date, COUNT(*) 
+            FROM matches 
+            WHERE date IS NOT NULL 
+            GROUP BY date 
+            ORDER BY 
+                SUBSTR(date, 7, 4) || SUBSTR(date, 4, 2) || SUBSTR(date, 1, 2) DESC 
+            LIMIT 10
+        """)
+        recent_match_dates = [{"date": row[0], "count": row[1]} for row in cursor.fetchall()]
+        
+        # Joueurs avec le plus de matchs
+        cursor = db.execute("""
+            SELECT p.licence, p.name, p.club_code, COUNT(m.id) as match_count
+            FROM players p
+            LEFT JOIN matches m ON p.licence = m.player_licence
+            GROUP BY p.licence
+            ORDER BY match_count DESC
+            LIMIT 10
+        """)
+        top_players_by_matches = [
+            {"licence": row[0], "name": row[1], "club": row[2], "matches": row[3]}
+            for row in cursor.fetchall()
+        ]
+        
+        # Dernière mise à jour d'un joueur
+        cursor = db.execute("SELECT MAX(last_update) FROM players WHERE last_update IS NOT NULL")
+        last_player_update = cursor.fetchone()[0]
+    
+    return {
+        **stats,
+        "matches_by_type": matches_by_type,
+        "recent_match_dates": recent_match_dates,
+        "top_players_by_matches": top_players_by_matches,
+        "last_player_update": last_player_update
+    }
+
+
 # =============================================================================
 # ROUTES: Clubs
 # =============================================================================
@@ -792,6 +843,8 @@ async def run_full_scrape(task_id: int, trigger_type: str):
         
         completed = 0
         total_players = 0
+        total_matches_scraped = 0  # Compteur de matchs scrapés
+        total_fiches_scraped = 0   # Compteur de fiches individuelles scrapées
         errors = []
         
         # 2. Scraper chaque club
@@ -982,37 +1035,58 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                                     })
                                     stats_f_count += 1
                             
-                            # Log détaillé pour chaque joueur
-                            log_parts = [f"[DB] 👤 {licence} ({updated_data.get('name', 'N/A')[:30]})"]
-                            if matches_m_count > 0:
-                                log_parts.append(f"{matches_m_count}M matchs")
-                            if stats_m_count > 0:
-                                log_parts.append(f"{stats_m_count}M stats")
-                            if matches_f_count > 0:
-                                log_parts.append(f"{matches_f_count}F matchs")
-                            if stats_f_count > 0:
-                                log_parts.append(f"{stats_f_count}F stats")
+                            # Compter les matchs scrapés pour ce joueur
+                            player_matches_count = matches_m_count + matches_f_count
+                            total_matches_scraped += player_matches_count
+                            total_fiches_scraped += 1
                             
-                            if matches_m_count > 0 or stats_m_count > 0 or matches_f_count > 0 or stats_f_count > 0:
-                                _add_log(task_id, " | ".join(log_parts))
+                            # Log détaillé avec les données récupérées
+                            player_name = updated_data.get('name', 'N/A')[:25]
+                            player_ranking = updated_data.get('ranking', '?')
+                            player_pts = updated_data.get('points_current', 0) or 0
+                            player_wins = updated_data.get('total_wins', 0)
+                            player_losses = updated_data.get('total_losses', 0)
+                            
+                            # Log principal du joueur
+                            _add_log(task_id, f"[JOUEUR] 👤 {licence} - {player_name} ({player_ranking}) | {player_pts:.0f}pts | {player_wins}V-{player_losses}D | {matches_m_count} matchs")
+                            
+                            # Afficher les 3 derniers matchs s'il y en a
+                            if matches_masculine and len(matches_masculine) > 0:
+                                recent_matches = matches_masculine[:3]
+                                for m in recent_matches:
+                                    m_date = m.get('date', '?')
+                                    m_opponent = m.get('opponent_name', '?')[:20]
+                                    m_score = m.get('score', '?')
+                                    m_result = '✅' if m.get('won') else '❌'
+                                    m_pts = m.get('points_change', 0) or 0
+                                    pts_str = f"+{m_pts:.1f}" if m_pts >= 0 else f"{m_pts:.1f}"
+                                    _add_log(task_id, f"  └─ {m_result} {m_date} vs {m_opponent} {m_score} ({pts_str}pts)")
                             
                             players_scraped += 1
                             
                             # Log tous les 5 joueurs pour le résumé
                             if players_scraped % 5 == 0:
-                                _add_log(task_id, f"[DB] 📊 {players_scraped}/{len(all_players)} fiches complètes scrapées pour {code}")
+                                _add_log(task_id, f"[DB] 📊 {players_scraped}/{len(all_players)} fiches scrapées pour {code} (total matchs: {total_matches_scraped})")
+                            
+                            # Petit délai entre chaque joueur pour ne pas surcharger le serveur AFTT
+                            await asyncio.sleep(0.3)
+                            
                         except Exception as e:
                             # Erreur sur une fiche individuelle, continuer
                             error_msg = f"Erreur fiche joueur {licence}: {str(e)[:100]}"
                             players_errors.append(error_msg)
                             _add_log(task_id, f"[WARNING] {error_msg}")
+                            # Pause plus longue après une erreur
+                            await asyncio.sleep(2.0)
                     
                     # Résumé final pour le club
+                    club_matches = sum(1 for l, p in all_players.items() if l)  # Pour le décompte
                     summary_parts = [f"[SCRAPE] ✅ {code}"]
                     summary_parts.append(f"{len(all_players)} joueurs")
                     summary_parts.append(f"{players_scraped} fiches")
+                    summary_parts.append(f"Total matchs global: {total_matches_scraped}")
                     if players_errors:
-                        summary_parts.append(f"{len(players_errors)} erreurs")
+                        summary_parts.append(f"{len(players_errors)} erreurs fiches")
                     _add_log(task_id, " | ".join(summary_parts))
                     
                 except Exception as e:
@@ -1022,8 +1096,8 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                 
                 completed += 1
                 
-                # Pause pour ne pas surcharger
-                await asyncio.sleep(0.1)
+                # Pause entre les clubs pour ne pas surcharger le serveur AFTT
+                await asyncio.sleep(1.0)
         
         # 3. Terminer la tâche
         queries.update_scrape_task(
@@ -1037,7 +1111,7 @@ async def run_full_scrape(task_id: int, trigger_type: str):
             current_province=None
         )
         
-        _add_log(task_id, f"[SCRAPE] ✅ Tâche #{task_id} terminée: {completed} clubs, {total_players} joueurs, {len(errors)} erreurs")
+        _add_log(task_id, f"[SCRAPE] ✅ Tâche #{task_id} terminée: {completed} clubs, {total_players} joueurs, {total_fiches_scraped} fiches, {total_matches_scraped} matchs, {len(errors)} erreurs clubs")
         
     except Exception as e:
         _add_log(task_id, f"[SCRAPE] ❌ Tâche #{task_id} échouée: {e}")

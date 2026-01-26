@@ -796,8 +796,8 @@
                                 <span id="terminal-toggle-text">▼ Réduire</span>
                             </button>
                         </div>
-                        <div id="scrape-terminal" style="background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto; color: var(--text-primary);">
-                            <div style="color: var(--text-muted);">En attente des logs...</div>
+                        <div id="scrape-terminal" style="background: #0d1117; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 0.85rem; max-height: 600px; min-height: 300px; overflow-y: auto; color: #e6edf3;">
+                            <div style="color: var(--text-muted);">🖥️ En attente du scraping... Le terminal affichera les données récupérées en temps réel.</div>
                         </div>
                     </div>
                 </div>
@@ -2470,23 +2470,58 @@
                     if (data.logs.length > lastLogCount) {
                         const logsHtml = data.logs.map(log => {
                             let color = 'var(--text-primary)';
-                            let icon = '';
+                            let bgColor = 'transparent';
+                            let padding = '0.15rem 0';
+                            let fontSize = '0.85rem';
+                            let marginLeft = '0';
                             
-                            if (log.message.includes('✅')) {
-                                color = 'var(--success)';
-                                icon = '✅';
-                            } else if (log.message.includes('❌')) {
-                                color = 'var(--danger)';
-                                icon = '❌';
-                            } else if (log.message.includes('WARNING')) {
-                                color = 'var(--warning)';
-                                icon = '⚠️';
-                            } else if (log.message.includes('[SCRAPE]')) {
-                                color = 'var(--accent)';
+                            // Logs de joueurs avec données
+                            if (log.message.includes('[JOUEUR]')) {
+                                color = '#60a5fa'; // Bleu clair
+                                bgColor = 'rgba(96, 165, 250, 0.1)';
+                                padding = '0.35rem 0.5rem';
+                                fontSize = '0.9rem';
+                            }
+                            // Logs de matchs (sous-logs)
+                            else if (log.message.includes('└─')) {
+                                marginLeft = '1.5rem';
+                                fontSize = '0.8rem';
+                                if (log.message.includes('✅')) {
+                                    color = '#34d399'; // Vert
+                                } else if (log.message.includes('❌')) {
+                                    color = '#f87171'; // Rouge
+                                }
+                            }
+                            // Logs de clubs
+                            else if (log.message.includes('[DB] ✅ Club')) {
+                                color = '#a78bfa'; // Violet
+                                bgColor = 'rgba(167, 139, 250, 0.1)';
+                                padding = '0.35rem 0.5rem';
+                            }
+                            // Logs de scrape club terminé
+                            else if (log.message.includes('[SCRAPE] ✅')) {
+                                color = '#34d399'; // Vert
+                                bgColor = 'rgba(52, 211, 153, 0.15)';
+                                padding = '0.4rem 0.5rem';
+                                fontSize = '0.95rem';
+                            }
+                            // Erreurs
+                            else if (log.message.includes('❌') || log.message.includes('WARNING') || log.message.includes('Erreur')) {
+                                color = '#fbbf24'; // Jaune/Orange
+                            }
+                            // Logs de progression
+                            else if (log.message.includes('📊')) {
+                                color = '#38bdf8'; // Cyan
+                            }
+                            // Démarrage
+                            else if (log.message.includes('Démarrage')) {
+                                color = '#c084fc'; // Violet clair
+                                bgColor = 'rgba(192, 132, 252, 0.1)';
+                                padding = '0.4rem 0.5rem';
                             }
                             
-                            return `<div style="color: ${color}; margin-bottom: 0.25rem;">
-                                <span style="color: var(--text-muted);">[${log.timestamp}]</span> ${icon} ${log.message}
+                            return `<div style="color: ${color}; background: ${bgColor}; padding: ${padding}; margin-bottom: 0.15rem; margin-left: ${marginLeft}; border-radius: 4px; font-size: ${fontSize};">
+                                <span style="color: var(--text-muted); font-size: 0.75rem;">[${log.timestamp}]</span> ${log.message}
                             </div>`;
                         }).join('');
                         
@@ -2507,9 +2542,11 @@
         function startScrapeLogsPolling(taskId) {
             if (scrapeLogsInterval) return;
             lastLogCount = 0;
+            // Charger immédiatement
+            loadScrapeLogs(taskId);
             scrapeLogsInterval = setInterval(() => {
                 loadScrapeLogs(taskId);
-            }, 2000); // Rafraîchir toutes les 2 secondes
+            }, 1000); // Rafraîchir toutes les secondes pour voir en temps réel
         }
         
         function stopScrapeLogsPolling() {
@@ -2529,10 +2566,12 @@
             terminalExpanded = !terminalExpanded;
             
             if (terminalExpanded) {
-                terminal.style.maxHeight = '400px';
+                terminal.style.maxHeight = '600px';
+                terminal.style.minHeight = '300px';
                 toggleText.textContent = '▼ Réduire';
             } else {
-                terminal.style.maxHeight = '100px';
+                terminal.style.maxHeight = '150px';
+                terminal.style.minHeight = '150px';
                 toggleText.textContent = '▲ Agrandir';
             }
         }
