@@ -659,6 +659,7 @@
                 <button class="nav-btn active" data-section="clubs">Clubs</button>
                 <button class="nav-btn" data-section="players">Joueurs</button>
                 <button class="nav-btn" data-section="tournaments">🏆 Tournois</button>
+                <button class="nav-btn" data-section="interclubs">🏅 Interclubs</button>
                 <button class="nav-btn" data-section="admin">⚙️ Admin</button>
                 <a href="api-docs.html" class="nav-btn" style="text-decoration: none; display: inline-block;">📚 API Docs</a>
             </nav>
@@ -694,6 +695,13 @@
                 <div class="stat-info">
                     <h3 id="stat-tournaments">0</h3>
                     <p>Tournois</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(14, 165, 233, 0.2);">🏅</div>
+                <div class="stat-info">
+                    <h3 id="stat-interclubs">0</h3>
+                    <p>Equipes interclubs</p>
                 </div>
             </div>
         </div>
@@ -770,6 +778,73 @@
                 <!-- Statut du scraping des tournois -->
             </div>
             <div class="data-grid" id="tournaments-grid"></div>
+        </section>
+
+        <!-- Interclubs Section -->
+        <section id="interclubs-section" class="section">
+            <div id="interclubs-header" style="margin-bottom: 1.5rem;">
+                <div id="interclubs-main-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600;">🏅 Classements Interclubs</h2>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                        <button onclick="scrapeInterclubs()" class="btn btn-primary" id="scrape-interclubs-btn">
+                            🔄 Scraper les interclubs
+                        </button>
+                        <div class="search-wrapper" style="max-width: 300px;">
+                            <input type="text" class="search-input" id="interclubs-team-search" placeholder="Rechercher une equipe...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scrape status -->
+            <div id="interclubs-scrape-status" style="display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 600;">🔄 Scraping en cours...</span>
+                    <button onclick="cancelInterclubsScrape()" class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.75rem; border: 1px solid var(--error); color: var(--error);">Annuler</button>
+                </div>
+                <div id="interclubs-scrape-info" style="color: var(--text-muted); font-size: 0.85rem;"></div>
+            </div>
+
+            <!-- Filtres division + semaine -->
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: end;">
+                <div style="flex: 1; min-width: 250px;">
+                    <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.3rem;">Division</label>
+                    <select id="interclubs-division-select" class="search-input" style="padding: 0.6rem 1rem; cursor: pointer; width: 100%; max-width: 100%; padding-left: 1rem;">
+                        <option value="">-- Choisir une division --</option>
+                    </select>
+                </div>
+                <div style="min-width: 120px;">
+                    <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.3rem;">Semaine</label>
+                    <select id="interclubs-week-select" class="search-input" style="padding: 0.6rem 1rem; cursor: pointer; width: 100%; padding-left: 1rem;">
+                        <option value="">Sem.</option>
+                    </select>
+                </div>
+                <div style="min-width: 160px;">
+                    <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.3rem;">Categorie</label>
+                    <select id="interclubs-category-filter" class="search-input" style="padding: 0.6rem 1rem; cursor: pointer; width: 100%; padding-left: 1rem;">
+                        <option value="">Toutes</option>
+                    </select>
+                </div>
+                <button onclick="loadInterclubsRanking()" class="btn btn-primary" style="height: 42px;">
+                    Afficher
+                </button>
+            </div>
+
+            <!-- Tableau de classement -->
+            <div id="interclubs-ranking-container" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;">
+                <div id="interclubs-ranking-title" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: none;">
+                    <h3 style="font-size: 1.1rem; font-weight: 600;" id="interclubs-ranking-title-text"></h3>
+                </div>
+                <div id="interclubs-ranking-content" style="padding: 1.5rem;">
+                    <p style="color: var(--text-muted); text-align: center;">Selectionnez une division et une semaine pour afficher le classement</p>
+                </div>
+            </div>
+
+            <!-- Recherche equipes resultats -->
+            <div id="interclubs-search-results" style="display: none; margin-top: 1.5rem;">
+                <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem;">Resultats de recherche</h3>
+                <div class="data-grid" id="interclubs-search-grid"></div>
+            </div>
         </section>
 
         <!-- Admin Section -->
@@ -878,6 +953,11 @@
                     loadScrapeStatus();
                     loadScrapeHistory();
                 }
+                // Charger les divisions interclubs
+                if (section === 'interclubs') {
+                    loadInterclubsDivisions();
+                    checkInterclubsScrapeStatus();
+                }
             });
         });
 
@@ -955,12 +1035,24 @@
                 } catch (e) {
                     document.getElementById('stat-tournaments').textContent = '0';
                 }
+
+                // Interclubs : nombre d'equipes
+                try {
+                    const icRes = await fetch(`${API_BASE_URL}/api/interclubs/stats`);
+                    if (icRes.ok) {
+                        const icData = await icRes.json();
+                        document.getElementById('stat-interclubs').textContent = (icData.teams_count || 0).toLocaleString();
+                    }
+                } catch (e) {
+                    document.getElementById('stat-interclubs').textContent = '0';
+                }
             } catch (e) {
                 // En cas d'erreur, utiliser les données locales
                 document.getElementById('stat-clubs').textContent = state.clubs.length;
                 document.getElementById('stat-players').textContent = Object.keys(state.players).length;
                 document.getElementById('stat-members').textContent = Object.keys(state.players).length;
                 document.getElementById('stat-tournaments').textContent = '0';
+                document.getElementById('stat-interclubs').textContent = '0';
             }
         }
 
@@ -3328,13 +3420,341 @@
             });
         }
 
+        // =============================================================================
+        // INTERCLUBS
+        // =============================================================================
+
+        let interclubsDivisions = [];
+        let interclubsScrapeInterval = null;
+
+        async function loadInterclubsDivisions() {
+            const select = document.getElementById('interclubs-division-select');
+            const categoryFilter = document.getElementById('interclubs-category-filter');
+            const weekSelect = document.getElementById('interclubs-week-select');
+
+            // Remplir les semaines 1-22
+            if (weekSelect.options.length <= 1) {
+                for (let w = 1; w <= 22; w++) {
+                    const opt = document.createElement('option');
+                    opt.value = w;
+                    opt.textContent = `Semaine ${w}`;
+                    weekSelect.appendChild(opt);
+                }
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/interclubs/divisions`);
+                if (!res.ok) return;
+                const data = await res.json();
+                interclubsDivisions = data.divisions || [];
+
+                // Extraire les categories uniques
+                const categories = new Set();
+                interclubsDivisions.forEach(d => {
+                    if (d.division_category) categories.add(d.division_category);
+                });
+
+                // Remplir le filtre categorie
+                categoryFilter.innerHTML = '<option value="">Toutes</option>';
+                Array.from(categories).sort().forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.textContent = cat;
+                    categoryFilter.appendChild(opt);
+                });
+
+                // Remplir le select des divisions
+                renderDivisionSelect();
+
+                // Listener sur le filtre categorie
+                categoryFilter.onchange = () => renderDivisionSelect();
+
+            } catch (e) {
+                console.error('Erreur chargement divisions interclubs:', e);
+            }
+        }
+
+        function renderDivisionSelect() {
+            const select = document.getElementById('interclubs-division-select');
+            const categoryFilter = document.getElementById('interclubs-category-filter');
+            const selectedCategory = categoryFilter.value;
+
+            const currentVal = select.value;
+            select.innerHTML = '<option value="">-- Choisir une division --</option>';
+
+            let filtered = interclubsDivisions;
+            if (selectedCategory) {
+                filtered = filtered.filter(d => d.division_category === selectedCategory);
+            }
+
+            filtered.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.division_index;
+                opt.textContent = d.division_name;
+                select.appendChild(opt);
+            });
+
+            // Restaurer la selection si possible
+            if (currentVal) select.value = currentVal;
+        }
+
+        async function loadInterclubsRanking() {
+            const divIndex = document.getElementById('interclubs-division-select').value;
+            const week = document.getElementById('interclubs-week-select').value;
+            const container = document.getElementById('interclubs-ranking-content');
+            const titleBar = document.getElementById('interclubs-ranking-title');
+            const titleText = document.getElementById('interclubs-ranking-title-text');
+
+            if (!divIndex || !week) {
+                container.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Selectionnez une division et une semaine</p>';
+                titleBar.style.display = 'none';
+                return;
+            }
+
+            container.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Chargement...</p>';
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/interclubs/rankings?division_index=${divIndex}&week=${week}`);
+                if (!res.ok) throw new Error('Erreur API');
+                const data = await res.json();
+
+                // Trouver le nom de la division
+                const div = interclubsDivisions.find(d => d.division_index == divIndex);
+                const divName = div ? div.division_name : `Division ${divIndex}`;
+
+                titleText.textContent = `${divName} - Semaine ${week}`;
+                titleBar.style.display = 'block';
+
+                if (!data.rankings || data.rankings.length === 0) {
+                    container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Aucun classement disponible pour cette combinaison</p>';
+                    return;
+                }
+
+                let html = `<div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--border);">
+                                <th style="padding: 0.75rem 1rem; text-align: center; color: var(--text-muted); font-weight: 600; width: 50px;">#</th>
+                                <th style="padding: 0.75rem 1rem; text-align: left; color: var(--text-muted); font-weight: 600;">Equipe</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; color: var(--text-muted); font-weight: 600;">J</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; color: var(--text-muted); font-weight: 600;">G</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; color: var(--text-muted); font-weight: 600;">P</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; color: var(--text-muted); font-weight: 600;">N</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; color: var(--text-muted); font-weight: 600;">FF</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; color: var(--accent-primary); font-weight: 700;">Pts</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+                data.rankings.forEach((r, i) => {
+                    const isFirst = i === 0;
+                    const bgStyle = isFirst ? 'background: rgba(99, 102, 241, 0.1);' : (i % 2 === 0 ? '' : 'background: var(--bg-hover);');
+                    const rankColor = isFirst ? 'color: var(--warning); font-weight: 700;' : '';
+                    html += `<tr style="${bgStyle} border-bottom: 1px solid var(--border); cursor: pointer;" onclick="showTeamHistory('${r.team_name.replace(/'/g, "\\'")}', ${divIndex})">
+                        <td style="padding: 0.75rem 1rem; text-align: center; ${rankColor}">${r.rank || '-'}</td>
+                        <td style="padding: 0.75rem 1rem; font-weight: 500;">${r.team_name}</td>
+                        <td style="padding: 0.75rem 1rem; text-align: center;">${r.played}</td>
+                        <td style="padding: 0.75rem 1rem; text-align: center; color: var(--success);">${r.wins}</td>
+                        <td style="padding: 0.75rem 1rem; text-align: center; color: var(--error);">${r.losses}</td>
+                        <td style="padding: 0.75rem 1rem; text-align: center;">${r.draws}</td>
+                        <td style="padding: 0.75rem 1rem; text-align: center; color: var(--text-muted);">${r.forfeits}</td>
+                        <td style="padding: 0.75rem 1rem; text-align: center; font-weight: 700; font-size: 1rem;">${r.points}</td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+
+            } catch (e) {
+                container.innerHTML = `<p style="color: var(--error); text-align: center;">Erreur: ${e.message}</p>`;
+            }
+        }
+
+        async function showTeamHistory(teamName, divisionIndex) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/interclubs/team/${encodeURIComponent(teamName)}/history?division_index=${divisionIndex}`);
+                if (!res.ok) throw new Error('Erreur API');
+                const data = await res.json();
+
+                let html = `<div style="margin-bottom: 1rem;">
+                    <span style="color: var(--text-muted);">Progression semaine par semaine</span>
+                </div>`;
+
+                if (data.history && data.history.length > 0) {
+                    html += `<table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--border);">
+                                <th style="padding: 0.5rem; text-align: center; color: var(--text-muted);">Sem.</th>
+                                <th style="padding: 0.5rem; text-align: center; color: var(--text-muted);">#</th>
+                                <th style="padding: 0.5rem; text-align: center; color: var(--text-muted);">J</th>
+                                <th style="padding: 0.5rem; text-align: center; color: var(--text-muted);">G</th>
+                                <th style="padding: 0.5rem; text-align: center; color: var(--text-muted);">P</th>
+                                <th style="padding: 0.5rem; text-align: center; color: var(--text-muted);">N</th>
+                                <th style="padding: 0.5rem; text-align: center; color: var(--accent-primary); font-weight: 700;">Pts</th>
+                            </tr>
+                        </thead><tbody>`;
+
+                    data.history.forEach((h, i) => {
+                        const bg = i % 2 === 0 ? '' : 'background: var(--bg-hover);';
+                        html += `<tr style="${bg} border-bottom: 1px solid var(--border);">
+                            <td style="padding: 0.5rem; text-align: center; font-weight: 600;">${h.week}</td>
+                            <td style="padding: 0.5rem; text-align: center;">${h.rank || '-'}</td>
+                            <td style="padding: 0.5rem; text-align: center;">${h.played}</td>
+                            <td style="padding: 0.5rem; text-align: center; color: var(--success);">${h.wins}</td>
+                            <td style="padding: 0.5rem; text-align: center; color: var(--error);">${h.losses}</td>
+                            <td style="padding: 0.5rem; text-align: center;">${h.draws}</td>
+                            <td style="padding: 0.5rem; text-align: center; font-weight: 700;">${h.points}</td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                } else {
+                    html += '<p style="color: var(--text-muted);">Aucun historique disponible</p>';
+                }
+
+                openDetail(`🏅 ${teamName}`, html);
+            } catch (e) {
+                openDetail(`🏅 ${teamName}`, `<p style="color: var(--error);">Erreur: ${e.message}</p>`);
+            }
+        }
+
+        // Recherche equipes interclubs
+        document.getElementById('interclubs-team-search').addEventListener('input', async function() {
+            const query = this.value.trim();
+            const resultsDiv = document.getElementById('interclubs-search-results');
+            const grid = document.getElementById('interclubs-search-grid');
+
+            if (query.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/interclubs/search?q=${encodeURIComponent(query)}&limit=30`);
+                if (!res.ok) return;
+                const data = await res.json();
+
+                if (!data.teams || data.teams.length === 0) {
+                    grid.innerHTML = '<p style="color: var(--text-muted);">Aucun resultat</p>';
+                    resultsDiv.style.display = 'block';
+                    return;
+                }
+
+                grid.innerHTML = data.teams.map(t => `
+                    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; cursor: pointer; transition: all 0.2s;"
+                         onmouseover="this.style.borderColor='var(--accent-primary)'"
+                         onmouseout="this.style.borderColor='var(--border)'"
+                         onclick="showTeamHistory('${t.team_name.replace(/'/g, "\\'")}', ${t.division_index})">
+                        <div style="font-weight: 600; margin-bottom: 0.3rem;">${t.team_name}</div>
+                        <div style="color: var(--text-muted); font-size: 0.8rem;">${t.division_name}</div>
+                    </div>
+                `).join('');
+
+                resultsDiv.style.display = 'block';
+            } catch (e) {
+                console.error('Erreur recherche interclubs:', e);
+            }
+        });
+
+        // Scraping interclubs
+        async function scrapeInterclubs() {
+            const btn = document.getElementById('scrape-interclubs-btn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Lancement...';
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/scrape/interclubs`, { method: 'POST' });
+                if (!res.ok) {
+                    const err = await res.json();
+                    alert(err.detail?.error || 'Erreur lors du lancement');
+                    btn.disabled = false;
+                    btn.textContent = '🔄 Scraper les interclubs';
+                    return;
+                }
+
+                btn.textContent = '🔄 Scraping en cours...';
+                startInterclubsScrapePolling();
+
+            } catch (e) {
+                alert('Erreur: ' + e.message);
+                btn.disabled = false;
+                btn.textContent = '🔄 Scraper les interclubs';
+            }
+        }
+
+        async function cancelInterclubsScrape() {
+            try {
+                await fetch(`${API_BASE_URL}/api/scrape/interclubs/cancel`, { method: 'POST' });
+                stopInterclubsScrapePolling();
+            } catch (e) {
+                console.error('Erreur annulation:', e);
+            }
+        }
+
+        function startInterclubsScrapePolling() {
+            document.getElementById('interclubs-scrape-status').style.display = 'block';
+            interclubsScrapeInterval = setInterval(checkInterclubsScrapeStatus, 3000);
+        }
+
+        function stopInterclubsScrapePolling() {
+            if (interclubsScrapeInterval) {
+                clearInterval(interclubsScrapeInterval);
+                interclubsScrapeInterval = null;
+            }
+        }
+
+        async function checkInterclubsScrapeStatus() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/scrape/interclubs/status`);
+                if (!res.ok) return;
+                const data = await res.json();
+
+                const statusDiv = document.getElementById('interclubs-scrape-status');
+                const infoDiv = document.getElementById('interclubs-scrape-info');
+                const btn = document.getElementById('scrape-interclubs-btn');
+
+                if (data.running) {
+                    statusDiv.style.display = 'block';
+                    const elapsed = data.elapsed_seconds ? Math.round(data.elapsed_seconds) : 0;
+                    const mins = Math.floor(elapsed / 60);
+                    const secs = elapsed % 60;
+                    infoDiv.innerHTML = `
+                        <div>Classements trouves: <strong>${(data.total_rankings || 0).toLocaleString()}</strong></div>
+                        <div>Erreurs: ${data.errors_count || 0}</div>
+                        <div>Temps ecoule: ${mins}m ${secs}s</div>
+                    `;
+                    btn.disabled = true;
+                    btn.textContent = '🔄 Scraping en cours...';
+
+                    if (!interclubsScrapeInterval) startInterclubsScrapePolling();
+                } else {
+                    if (data.status === 'success' || data.status === 'failed' || data.status === 'cancelled') {
+                        statusDiv.style.display = 'block';
+                        const icon = data.status === 'success' ? '✅' : (data.status === 'cancelled' ? '⚠️' : '❌');
+                        infoDiv.innerHTML = `<div>${icon} ${data.status} - ${(data.total_rankings || 0).toLocaleString()} classements, ${data.errors_count || 0} erreurs</div>`;
+                        stopInterclubsScrapePolling();
+
+                        // Recharger les divisions
+                        loadInterclubsDivisions();
+                        updateStats();
+                    } else {
+                        statusDiv.style.display = 'none';
+                    }
+
+                    btn.disabled = false;
+                    btn.textContent = '🔄 Scraper les interclubs';
+                }
+            } catch (e) {
+                // Silently ignore
+            }
+        }
+
         // Initial render
         renderRegions();
         renderPlayers();
-        
+
         // Try to load from API (cela mettra à jour les stats)
         loadFromAPI();
-        
+
         // Charger l'admin si on est sur la section admin
         if (state.currentSection === 'admin') {
             loadScrapeStatus();
