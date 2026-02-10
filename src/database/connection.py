@@ -80,6 +80,15 @@ def init_database(db_path: str = None) -> None:
     conn = get_connection(db_path)
     try:
         conn.executescript(CREATE_TABLES_SQL)
+        # Migrations: ajouter les colonnes manquantes aux tables existantes
+        migrations = [
+            "ALTER TABLE interclubs_divisions ADD COLUMN division_id TEXT",
+        ]
+        for migration in migrations:
+            try:
+                conn.execute(migration)
+            except sqlite3.OperationalError:
+                pass  # Colonne deja existante
         conn.commit()
         logger.info("Tables créées avec succès")
     finally:

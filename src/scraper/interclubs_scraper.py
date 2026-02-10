@@ -10,7 +10,6 @@ Utilise Playwright avec UNE SEULE session navigateur pour les ~8800 pages.
 
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
-import re
 import time
 import logging
 import asyncio
@@ -35,32 +34,33 @@ PAGE_DELAY = 0.5
 
 
 def _extract_divisions(page) -> List[InterclubsDivision]:
-    """Extrait toutes les divisions du <select id='divisionSelect'>."""
-    html = page.content()
-    soup = BeautifulSoup(html, 'html.parser')
+    """Extrait toutes les divisions du <select id='divisionSelect'> via Playwright.
 
-    select = soup.find('select', id='divisionSelect')
-    if not select:
-        # Essayer d'autres noms possibles
-        select = soup.find('select')
-        if not select:
-            logger.error("Aucun <select> trouve sur la page")
-            return []
+    Utilise page.evaluate() pour lire directement le DOM (y compris les valeurs
+    generees par JavaScript).
+    """
+    options_data = page.evaluate("""
+        () => {
+            const select = document.getElementById('divisionSelect');
+            if (!select) return [];
+            return Array.from(select.options).map((o, i) => ({
+                index: i,
+                value: o.value,
+                text: o.text.trim()
+            }));
+        }
+    """)
+
+    if not options_data:
+        logger.error("Aucun <select> divisionSelect trouve sur la page")
+        return []
 
     divisions = []
-    options = select.find_all('option')
 
-    for option in options:
-        value = option.get('value', '')
-        text = option.get_text(strip=True)
+    for opt in options_data:
+        text = opt['text']
 
-        if not text or text == '' or text.startswith('--'):
-            continue
-
-        # L'index est la valeur du <option>
-        try:
-            division_index = int(value)
-        except (ValueError, TypeError):
+        if not text or text.startswith('--') or 'lectionner' in text.lower():
             continue
 
         # Extraire categorie et genre du nom
@@ -70,12 +70,13 @@ def _extract_divisions(page) -> List[InterclubsDivision]:
         if ' - ' in text:
             parts = [p.strip() for p in text.split(' - ')]
             if len(parts) >= 2:
-                category = parts[1] if len(parts) > 1 else None
+                category = parts[1]
             if len(parts) >= 3:
-                gender = parts[2] if len(parts) > 2 else None
+                gender = parts[2]
 
         division = InterclubsDivision(
-            division_index=division_index,
+            division_index=opt['index'],
+            division_id=str(opt['value']) if opt['value'] else None,
             division_name=text,
             division_category=category,
             division_gender=gender,
@@ -87,59 +88,74 @@ def _extract_divisions(page) -> List[InterclubsDivision]:
 
 
 def _navigate_to_division_week(page, division_index: int, week: int):
-    """Navigue vers une division/semaine specifique via JS form submit."""
-    # Selectionner la division
-    page.evaluate(f"""
-        () => {{
-            const select = document.getElementById('divisionSelect');
-            if (select) {{
-                // Trouver l'option avec la bonne valeur
-                for (let i = 0; i < select.options.length; i++) {{
-                    if (select.options[i].value == '{division_index}') {{
-                        select.selectedIndex = i;
-                        break;
+    """Navigue vers une division/semaine specifique.
+
+    division_index est l'index positionnel dans le <select>.
+    On utilise expect_navigation pour attendre le rechargement apres form.submit().
+    """
+    # Selectionner la division et soumettre
+    with page.expect_navigation(wait_until='networkidle', timeout=15000):
+        page.evaluate(f"""
+            () => {{
+                const select = document.getElementById('divisionSelect');
+                if (select) {{
+                    select.selectedIndex = {division_index};
+                    select.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                    if (select.form) {{
+                        select.form.submit();
                     }}
                 }}
-                if (select.form) {{
-                    select.form.submit();
-                }}
             }}
-        }}
-    """)
-    page.wait_for_load_state('networkidle')
+        """)
+    # Attendre le rendu JS du contenu
+    try:
+        page.wait_for_selector('table', timeout=5000)
+    except:
+        pass
     page.wait_for_timeout(500)
 
     # Modifier la semaine et soumettre
-    page.evaluate(f"""
-        () => {{
-            const weekInput = document.getElementById('week-input');
-            if (weekInput) {{
-                weekInput.value = '{week}';
+    with page.expect_navigation(wait_until='networkidle', timeout=15000):
+        page.evaluate(f"""
+            () => {{
+                const weekInput = document.getElementById('week-input');
+                const weekSelect = document.getElementById('week-select');
+                if (weekInput) {{
+                    weekInput.value = '{week}';
+                }}
+                if (weekSelect) {{
+                    weekSelect.value = '{week}';
+                }}
                 const form = document.getElementById('week-form');
                 if (form) {{
                     form.submit();
                 }}
             }}
-        }}
-    """)
-    page.wait_for_load_state('networkidle')
-    page.wait_for_timeout(300)
+        """)
+
+    # Attendre que le tableau soit rendu
+    try:
+        page.wait_for_selector('table', timeout=5000)
+    except:
+        # Certaines divisions (coupes) n'ont pas de tableau de classement
+        pass
+    page.wait_for_timeout(500)
 
 
 def _parse_rankings_table(html: str, division_index: int, division_name: str, week: int) -> List[InterclubsRanking]:
     """Parse le tableau HTML des classements.
 
     Colonnes attendues: #, Equipe, J, G, P, N, FF, Pts
+    La table a les classes: table table-sm table-striped text-center
     """
     soup = BeautifulSoup(html, 'html.parser')
     rankings = []
 
-    # Chercher le tableau de classement
+    # Chercher le tableau de classement (class="table ...")
     table = soup.find('table', class_='table')
     if not table:
         tables = soup.find_all('table')
         for t in tables:
-            # Verifier que c'est bien un tableau de classement
             headers = t.find_all('th')
             header_texts = [h.get_text(strip=True).lower() for h in headers]
             if any(h in header_texts for h in ['equipe', 'équipe', 'team', 'pts', 'j']):
@@ -147,6 +163,12 @@ def _parse_rankings_table(html: str, division_index: int, division_name: str, we
                 break
 
     if not table:
+        return rankings
+
+    # Verifier que c'est un tableau de classement et pas de resultats
+    headers = table.find_all('th')
+    header_texts = [h.get_text(strip=True).lower() for h in headers]
+    if not any(h in header_texts for h in ['equipe', 'équipe', 'team']):
         return rankings
 
     rows = table.find_all('tr')
@@ -294,6 +316,7 @@ def scrape_all_interclubs_rankings(
                         try:
                             _navigate_to_division_week(page, division.division_index, week)
                             html = page.content()
+
                             rankings = _parse_rankings_table(
                                 html, division.division_index, division.division_name, week
                             )
@@ -310,8 +333,7 @@ def scrape_all_interclubs_rankings(
                                 'week': week,
                             }
 
-                            if completed % 50 == 0 or len(rankings) > 0:
-                                log(f"[INTERCLUBS] [{pct}%] Div {division.division_index} ({division.division_name[:40]}) Sem {week}: {len(rankings)} equipes")
+                            log(f"[INTERCLUBS] [{pct}%] Div {division.division_index} ({division.division_name[:40]}) Sem {week}: {len(rankings)} equipes")
 
                             success = True
                             time.sleep(delay)

@@ -155,6 +155,7 @@ class InterclubsDivision:
     """Représente une division interclubs."""
     id: Optional[int] = None
     division_index: int = 0
+    division_id: Optional[str] = None  # valeur option du <select> (ex: "8662")
     division_name: str = ""
     division_category: Optional[str] = None
     division_gender: Optional[str] = None
@@ -162,6 +163,7 @@ class InterclubsDivision:
     def to_dict(self) -> dict:
         return {
             'division_index': self.division_index,
+            'division_id': self.division_id,
             'division_name': self.division_name,
             'division_category': self.division_category,
             'division_gender': self.division_gender,
@@ -354,6 +356,7 @@ CREATE TABLE IF NOT EXISTS tournament_results (
 CREATE TABLE IF NOT EXISTS interclubs_divisions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     division_index INTEGER NOT NULL,
+    division_id TEXT,
     division_name TEXT NOT NULL,
     division_category TEXT,
     division_gender TEXT,

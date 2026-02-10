@@ -894,15 +894,17 @@ def delete_tournament_data(tournament_id: int) -> None:
 def insert_interclubs_division(division: Dict[str, Any], db: sqlite3.Connection = None) -> None:
     """Insère ou met à jour une division interclubs."""
     sql = """
-    INSERT INTO interclubs_divisions (division_index, division_name, division_category, division_gender)
-    VALUES (:division_index, :division_name, :division_category, :division_gender)
+    INSERT INTO interclubs_divisions (division_index, division_id, division_name, division_category, division_gender)
+    VALUES (:division_index, :division_id, :division_name, :division_category, :division_gender)
     ON CONFLICT(division_index) DO UPDATE SET
+        division_id = COALESCE(excluded.division_id, interclubs_divisions.division_id),
         division_name = COALESCE(excluded.division_name, interclubs_divisions.division_name),
         division_category = COALESCE(excluded.division_category, interclubs_divisions.division_category),
         division_gender = COALESCE(excluded.division_gender, interclubs_divisions.division_gender)
     """
     data = {
         'division_index': division.get('division_index'),
+        'division_id': division.get('division_id'),
         'division_name': division.get('division_name'),
         'division_category': division.get('division_category'),
         'division_gender': division.get('division_gender'),
