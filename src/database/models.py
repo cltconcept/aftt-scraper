@@ -150,6 +150,56 @@ class TournamentResult:
     round: Optional[str] = None
 
 
+@dataclass
+class InterclubsDivision:
+    """Représente une division interclubs."""
+    id: Optional[int] = None
+    division_index: int = 0
+    division_name: str = ""
+    division_category: Optional[str] = None
+    division_gender: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            'division_index': self.division_index,
+            'division_name': self.division_name,
+            'division_category': self.division_category,
+            'division_gender': self.division_gender,
+        }
+
+
+@dataclass
+class InterclubsRanking:
+    """Représente un classement d'équipe dans une division/semaine."""
+    id: Optional[int] = None
+    division_index: int = 0
+    division_name: str = ""
+    week: int = 0
+    rank: Optional[int] = None
+    team_name: str = ""
+    played: int = 0
+    wins: int = 0
+    losses: int = 0
+    draws: int = 0
+    forfeits: int = 0
+    points: int = 0
+
+    def to_dict(self) -> dict:
+        return {
+            'division_index': self.division_index,
+            'division_name': self.division_name,
+            'week': self.week,
+            'rank': self.rank,
+            'team_name': self.team_name,
+            'played': self.played,
+            'wins': self.wins,
+            'losses': self.losses,
+            'draws': self.draws,
+            'forfeits': self.forfeits,
+            'points': self.points,
+        }
+
+
 # SQL pour créer les tables
 CREATE_TABLES_SQL = """
 -- Table des clubs
@@ -300,6 +350,33 @@ CREATE TABLE IF NOT EXISTS tournament_results (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Table des divisions interclubs
+CREATE TABLE IF NOT EXISTS interclubs_divisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    division_index INTEGER NOT NULL,
+    division_name TEXT NOT NULL,
+    division_category TEXT,
+    division_gender TEXT,
+    UNIQUE(division_index)
+);
+
+-- Table des classements par division et semaine
+CREATE TABLE IF NOT EXISTS interclubs_rankings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    division_index INTEGER NOT NULL,
+    division_name TEXT NOT NULL,
+    week INTEGER NOT NULL,
+    rank INTEGER,
+    team_name TEXT NOT NULL,
+    played INTEGER DEFAULT 0,
+    wins INTEGER DEFAULT 0,
+    losses INTEGER DEFAULT 0,
+    draws INTEGER DEFAULT 0,
+    forfeits INTEGER DEFAULT 0,
+    points INTEGER DEFAULT 0,
+    UNIQUE(division_index, week, team_name)
+);
+
 -- Index pour les recherches fréquentes
 CREATE INDEX IF NOT EXISTS idx_players_club ON players(club_code);
 CREATE INDEX IF NOT EXISTS idx_players_ranking ON players(ranking);
@@ -315,4 +392,8 @@ CREATE INDEX IF NOT EXISTS idx_tournament_series_tournament ON tournament_series
 CREATE INDEX IF NOT EXISTS idx_tournament_inscriptions_tournament ON tournament_inscriptions(tournament_id);
 CREATE INDEX IF NOT EXISTS idx_tournament_inscriptions_player ON tournament_inscriptions(player_licence);
 CREATE INDEX IF NOT EXISTS idx_tournament_results_tournament ON tournament_results(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_interclubs_rankings_division ON interclubs_rankings(division_index);
+CREATE INDEX IF NOT EXISTS idx_interclubs_rankings_week ON interclubs_rankings(week);
+CREATE INDEX IF NOT EXISTS idx_interclubs_rankings_team ON interclubs_rankings(team_name);
+CREATE INDEX IF NOT EXISTS idx_interclubs_rankings_div_week ON interclubs_rankings(division_index, week);
 """

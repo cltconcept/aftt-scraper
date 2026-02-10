@@ -35,6 +35,7 @@ from scraper.clubs_scraper import main as scrape_clubs, get_all_clubs
 from scraper.members_scraper import main as scrape_members, get_club_members, save_members_to_json
 from scraper.player_scraper import main as scrape_player, get_player_info
 from scraper.tournament_scraper import main as scrape_tournament, get_all_tournaments, get_tournament_details
+from scraper.interclubs_scraper import scrape_all_interclubs_rankings
 
 
 def scrape_all_members():
@@ -120,6 +121,8 @@ SCRAPING (récupération des données):
   python main.py player 152174      Fiche d'un joueur
   python main.py tournaments        Liste de tous les tournois
   python main.py tournament 6310    Détails d'un tournoi spécifique
+  python main.py interclubs         Classements interclubs (toutes divisions, semaines 1-22)
+  python main.py interclubs --weeks 1,2 --divisions 5,10   Filtrage optionnel
 
 DATABASE (stockage):
   python main.py import             Importe les JSON dans SQLite
@@ -135,8 +138,9 @@ EXEMPLES:
   python main.py members H004       # 2. Récupérer les membres
   python main.py player 152174      # 3. Récupérer une fiche joueur
   python main.py tournaments        # 4. Récupérer les tournois
-  python main.py import             # 5. Importer dans SQLite
-  python main.py api                # 6. Lancer l'API
+  python main.py interclubs         # 5. Récupérer les classements interclubs
+  python main.py import             # 6. Importer dans SQLite
+  python main.py api                # 7. Lancer l'API
 """
     print(help_text)
 
@@ -204,6 +208,44 @@ def run():
         print(f"\n[ETAPE] Recuperation des details du tournoi {t_id}...")
         scrape_tournament(t_id)
     
+    elif args[0] == "interclubs":
+        print("\n[ETAPE] Recuperation des classements interclubs...")
+
+        # Initialiser la base de donnees pour les nouvelles tables
+        from database.connection import init_database
+        init_database()
+
+        # Parser les arguments optionnels
+        weeks = None
+        division_indices = None
+
+        for i, arg in enumerate(args):
+            if arg == '--weeks' and i + 1 < len(args):
+                weeks = []
+                for part in args[i + 1].split(','):
+                    part = part.strip()
+                    if '-' in part:
+                        start, end = part.split('-', 1)
+                        weeks.extend(range(int(start), int(end) + 1))
+                    else:
+                        weeks.append(int(part))
+            elif arg == '--divisions' and i + 1 < len(args):
+                division_indices = [int(d.strip()) for d in args[i + 1].split(',')]
+
+        def print_callback(msg):
+            print(msg)
+
+        stats = scrape_all_interclubs_rankings(
+            callback=print_callback,
+            weeks=weeks,
+            division_indices=division_indices,
+        )
+
+        print(f"\n[OK] Scraping interclubs termine !")
+        print(f"  Divisions: {stats['total_divisions']}")
+        print(f"  Classements: {stats['total_rankings']}")
+        print(f"  Erreurs: {len(stats['errors'])}")
+
     elif args[0] == "import":
         reset = "--reset" in args
         if reset:

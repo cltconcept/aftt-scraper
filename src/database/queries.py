@@ -4,7 +4,7 @@ Requêtes et opérations sur la base de données AFTT
 import sqlite3
 from typing import List, Optional, Dict, Any
 from .connection import get_db
-from .models import Club, Player, Match, PlayerStats
+from .models import Club, Player, Match, PlayerStats, InterclubsDivision, InterclubsRanking
 
 
 # =============================================================================
@@ -885,3 +885,196 @@ def delete_tournament_data(tournament_id: int) -> None:
         db.execute("DELETE FROM tournament_results WHERE tournament_id = ?", (tournament_id,))
         db.execute("DELETE FROM tournament_inscriptions WHERE tournament_id = ?", (tournament_id,))
         db.execute("DELETE FROM tournament_series WHERE tournament_id = ?", (tournament_id,))
+
+
+# =============================================================================
+# INTERCLUBS DIVISIONS & RANKINGS
+# =============================================================================
+
+def insert_interclubs_division(division: Dict[str, Any], db: sqlite3.Connection = None) -> None:
+    """Insère ou met à jour une division interclubs."""
+    sql = """
+    INSERT INTO interclubs_divisions (division_index, division_name, division_category, division_gender)
+    VALUES (:division_index, :division_name, :division_category, :division_gender)
+    ON CONFLICT(division_index) DO UPDATE SET
+        division_name = COALESCE(excluded.division_name, interclubs_divisions.division_name),
+        division_category = COALESCE(excluded.division_category, interclubs_divisions.division_category),
+        division_gender = COALESCE(excluded.division_gender, interclubs_divisions.division_gender)
+    """
+    data = {
+        'division_index': division.get('division_index'),
+        'division_name': division.get('division_name'),
+        'division_category': division.get('division_category'),
+        'division_gender': division.get('division_gender'),
+    }
+    if db:
+        db.execute(sql, data)
+    else:
+        with get_db() as conn:
+            conn.execute(sql, data)
+
+
+def insert_interclubs_ranking(ranking: Dict[str, Any], db: sqlite3.Connection = None) -> None:
+    """Insère ou met à jour un classement interclubs."""
+    sql = """
+    INSERT INTO interclubs_rankings (division_index, division_name, week, rank, team_name,
+                                     played, wins, losses, draws, forfeits, points)
+    VALUES (:division_index, :division_name, :week, :rank, :team_name,
+            :played, :wins, :losses, :draws, :forfeits, :points)
+    ON CONFLICT(division_index, week, team_name) DO UPDATE SET
+        division_name = excluded.division_name,
+        rank = excluded.rank,
+        played = excluded.played,
+        wins = excluded.wins,
+        losses = excluded.losses,
+        draws = excluded.draws,
+        forfeits = excluded.forfeits,
+        points = excluded.points
+    """
+    data = {
+        'division_index': ranking.get('division_index'),
+        'division_name': ranking.get('division_name'),
+        'week': ranking.get('week'),
+        'rank': ranking.get('rank'),
+        'team_name': ranking.get('team_name'),
+        'played': ranking.get('played', 0),
+        'wins': ranking.get('wins', 0),
+        'losses': ranking.get('losses', 0),
+        'draws': ranking.get('draws', 0),
+        'forfeits': ranking.get('forfeits', 0),
+        'points': ranking.get('points', 0),
+    }
+    if db:
+        db.execute(sql, data)
+    else:
+        with get_db() as conn:
+            conn.execute(sql, data)
+
+
+def insert_interclubs_rankings_batch(rankings: List[Dict[str, Any]]) -> None:
+    """Insère un batch de classements interclubs dans une transaction."""
+    if not rankings:
+        return
+    sql = """
+    INSERT INTO interclubs_rankings (division_index, division_name, week, rank, team_name,
+                                     played, wins, losses, draws, forfeits, points)
+    VALUES (:division_index, :division_name, :week, :rank, :team_name,
+            :played, :wins, :losses, :draws, :forfeits, :points)
+    ON CONFLICT(division_index, week, team_name) DO UPDATE SET
+        division_name = excluded.division_name,
+        rank = excluded.rank,
+        played = excluded.played,
+        wins = excluded.wins,
+        losses = excluded.losses,
+        draws = excluded.draws,
+        forfeits = excluded.forfeits,
+        points = excluded.points
+    """
+    with get_db() as conn:
+        for ranking in rankings:
+            data = {
+                'division_index': ranking.get('division_index'),
+                'division_name': ranking.get('division_name'),
+                'week': ranking.get('week'),
+                'rank': ranking.get('rank'),
+                'team_name': ranking.get('team_name'),
+                'played': ranking.get('played', 0),
+                'wins': ranking.get('wins', 0),
+                'losses': ranking.get('losses', 0),
+                'draws': ranking.get('draws', 0),
+                'forfeits': ranking.get('forfeits', 0),
+                'points': ranking.get('points', 0),
+            }
+            conn.execute(sql, data)
+
+
+def get_interclubs_divisions(category: str = None, gender: str = None) -> List[Dict]:
+    """Récupère les divisions interclubs avec filtres optionnels."""
+    sql = "SELECT * FROM interclubs_divisions WHERE 1=1"
+    params = []
+    if category:
+        sql += " AND division_category LIKE ?"
+        params.append(f"%{category}%")
+    if gender:
+        sql += " AND division_gender = ?"
+        params.append(gender)
+    sql += " ORDER BY division_index"
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_interclubs_ranking(division_index: int, week: int) -> List[Dict]:
+    """Récupère le classement d'une division pour une semaine donnée."""
+    sql = """
+        SELECT * FROM interclubs_rankings
+        WHERE division_index = ? AND week = ?
+        ORDER BY rank ASC, points DESC
+    """
+    with get_db() as db:
+        cursor = db.execute(sql, (division_index, week))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_interclubs_team_history(team_name: str, division_index: int = None) -> List[Dict]:
+    """Récupère la progression d'une équipe semaine par semaine."""
+    sql = "SELECT * FROM interclubs_rankings WHERE team_name = ?"
+    params = [team_name]
+    if division_index is not None:
+        sql += " AND division_index = ?"
+        params.append(division_index)
+    sql += " ORDER BY division_index, week"
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def search_interclubs_teams(query: str, limit: int = 50) -> List[Dict]:
+    """Recherche des équipes interclubs par nom."""
+    sql = """
+        SELECT DISTINCT team_name, division_index, division_name
+        FROM interclubs_rankings
+        WHERE team_name LIKE ?
+        ORDER BY team_name
+        LIMIT ?
+    """
+    with get_db() as db:
+        cursor = db.execute(sql, (f"%{query}%", limit))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def delete_interclubs_rankings(division_index: int = None, week: int = None) -> int:
+    """Supprime des classements interclubs (filtrage optionnel)."""
+    sql = "DELETE FROM interclubs_rankings WHERE 1=1"
+    params = []
+    if division_index is not None:
+        sql += " AND division_index = ?"
+        params.append(division_index)
+    if week is not None:
+        sql += " AND week = ?"
+        params.append(week)
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return cursor.rowcount
+
+
+def get_interclubs_stats() -> Dict:
+    """Récupère des statistiques sur les données interclubs."""
+    with get_db() as db:
+        cursor = db.execute("SELECT COUNT(*) FROM interclubs_divisions")
+        divisions_count = cursor.fetchone()[0]
+        cursor = db.execute("SELECT COUNT(*) FROM interclubs_rankings")
+        rankings_count = cursor.fetchone()[0]
+        cursor = db.execute("SELECT COUNT(DISTINCT team_name) FROM interclubs_rankings")
+        teams_count = cursor.fetchone()[0]
+        cursor = db.execute("SELECT MIN(week), MAX(week) FROM interclubs_rankings")
+        row = cursor.fetchone()
+        min_week = row[0]
+        max_week = row[1]
+    return {
+        'divisions_count': divisions_count,
+        'rankings_count': rankings_count,
+        'teams_count': teams_count,
+        'min_week': min_week,
+        'max_week': max_week,
+    }
