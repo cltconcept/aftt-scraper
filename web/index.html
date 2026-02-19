@@ -2094,6 +2094,8 @@
             const evolution = (player.points_current || 0) - (player.points_start || 0);
             const evolutionClass = evolution >= 0 ? 'positive' : 'negative';
 
+            const hasFeminine = player.women_ranking || player.women_points_current;
+
             let content = `
                 <div class="info-grid">
                     <div class="info-item">
@@ -2101,15 +2103,17 @@
                         <div class="info-value">${player.licence}</div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">Clt. Masculin</div>
+                        <div class="info-label">Ranking</div>
+                        <div class="info-value">${player.ranking_position ? player.ranking_position + 'e' : 'N/A'}</div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 1.5rem 0 1rem;">Fiche Masculine</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Classement</div>
                         <div class="info-value">${player.ranking || 'N/A'}</div>
                     </div>
-                    ${player.women_ranking ? `
-                    <div class="info-item">
-                        <div class="info-label">Clt. Féminin</div>
-                        <div class="info-value" style="color: #ec4899;">${player.women_ranking}</div>
-                    </div>
-                    ` : ''}
                     <div class="info-item">
                         <div class="info-label">Points départ</div>
                         <div class="info-value">${player.points_start?.toFixed(1) || 0} pts</div>
@@ -2122,14 +2126,6 @@
                         <div class="info-label">Évolution</div>
                         <div class="info-value ${evolutionClass}">${evolution >= 0 ? '+' : ''}${evolution?.toFixed(1)} pts</div>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Ranking</div>
-                        <div class="info-value">${player.ranking_position ? player.ranking_position + 'e' : 'N/A'}</div>
-                    </div>
-                </div>
-
-                <h3 style="margin: 1.5rem 0 1rem;">Statistiques (Masculin)</h3>
-                <div class="info-grid">
                     <div class="info-item">
                         <div class="info-label">Victoires</div>
                         <div class="info-value positive">${player.total_wins || 0}</div>
@@ -2246,8 +2242,12 @@
             const matchesFeminine = player.matches_feminine || [];
             if (statsFeminine.length > 0 || matchesFeminine.length > 0 || player.women_points_current) {
                 content += `
-                    <h3 style="margin: 1.5rem 0 1rem; color: #ec4899;">📊 Fiche Féminine</h3>
+                    <h3 style="margin: 1.5rem 0 1rem; color: #ec4899;">Fiche Féminine</h3>
                     <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Classement</div>
+                            <div class="info-value" style="color: #ec4899;">${player.women_ranking || 'N/A'}</div>
+                        </div>
                         <div class="info-item">
                             <div class="info-label">Points départ</div>
                             <div class="info-value">${player.women_points_start?.toFixed(1) || 0} pts</div>
@@ -2263,8 +2263,12 @@
                             </div>
                         </div>
                         <div class="info-item">
-                            <div class="info-label">Bilan</div>
-                            <div class="info-value">${player.women_total_wins || 0}V - ${player.women_total_losses || 0}D</div>
+                            <div class="info-label">Victoires</div>
+                            <div class="info-value positive">${player.women_total_wins || 0}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Défaites</div>
+                            <div class="info-value negative">${player.women_total_losses || 0}</div>
                         </div>
                     </div>
                 `;
