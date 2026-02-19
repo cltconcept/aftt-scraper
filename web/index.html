@@ -2033,29 +2033,23 @@
         }
 
         // Render Players
-        function renderPlayers(filter = '') {
-            const grid = document.getElementById('players-grid');
-            const players = Object.values(state.players);
-            const filtered = players.filter(p =>
-                p.name?.toLowerCase().includes(filter.toLowerCase()) ||
-                p.licence?.includes(filter) ||
-                p.ranking?.toLowerCase().includes(filter.toLowerCase())
-            );
+        let playersSearchTimer = null;
 
-            if (filtered.length === 0) {
+        function renderPlayersList(players) {
+            const grid = document.getElementById('players-grid');
+            if (players.length === 0) {
                 grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 3rem;">
-                    Aucun joueur trouvé. Assurez-vous que l'API est démarrée.
+                    Aucun joueur trouvé.
                 </p>`;
                 return;
             }
-
-            grid.innerHTML = filtered.map(p => {
-                const evolution = p.points_current - p.points_start;
+            grid.innerHTML = players.map(p => {
+                const evolution = (p.points_current || 0) - (p.points_start || 0);
                 const evolutionClass = evolution >= 0 ? 'positive' : 'negative';
                 return `
                     <div class="card" onclick="showPlayerDetail('${p.licence}')">
                         <div class="card-header">
-                            <span class="card-badge">${p.ranking}</span>
+                            <span class="card-badge">${p.ranking || '?'}</span>
                             <span class="card-title">${p.name}</span>
                         </div>
                         <div class="card-subtitle">Licence: ${p.licence}</div>
@@ -2067,6 +2061,38 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        async function renderPlayers(filter = '') {
+            const grid = document.getElementById('players-grid');
+
+            // Si recherche vide, afficher les joueurs déjà en mémoire
+            if (!filter.trim()) {
+                const players = Object.values(state.players);
+                renderPlayersList(players);
+                return;
+            }
+
+            // Rechercher via l'API pour accéder à toute la base
+            grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 3rem;">
+                Recherche en cours...
+            </p>`;
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/players?search=${encodeURIComponent(filter)}&limit=100`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const players = data.players || data;
+                    // Ajouter au state pour pouvoir ouvrir le détail
+                    players.forEach(p => { state.players[p.licence] = p; });
+                    renderPlayersList(players);
+                }
+            } catch (e) {
+                console.error('Erreur recherche joueurs:', e);
+                grid.innerHTML = `<p style="grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 3rem;">
+                    Erreur lors de la recherche.
+                </p>`;
+            }
         }
 
         // Show Player Detail
@@ -2411,7 +2437,10 @@
                 await backToRegions();
             }
         });
-        document.getElementById('players-search').addEventListener('input', (e) => renderPlayers(e.target.value));
+        document.getElementById('players-search').addEventListener('input', (e) => {
+            clearTimeout(playersSearchTimer);
+            playersSearchTimer = setTimeout(() => renderPlayers(e.target.value), 300);
+        });
         
         // Charger les membres quand on clique sur un club
         document.addEventListener('click', async (e) => {
