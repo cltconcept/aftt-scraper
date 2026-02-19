@@ -692,6 +692,94 @@ async def get_player(licence: str):
     return player
 
 
+@app.post("/api/players/{licence}/scrape", tags=["Players"])
+async def scrape_single_player(licence: str):
+    """Rescrape la fiche d'un seul joueur depuis le site AFTT."""
+    # Vérifier que le joueur existe en base
+    existing = queries.get_player(licence)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Joueur {licence} non trouvé")
+
+    try:
+        # Scraper la fiche du joueur
+        player_info = get_player_info(licence)
+
+        # Supprimer les anciens matchs et stats
+        queries.delete_player_matches_and_stats(licence)
+
+        # Mettre à jour le joueur
+        player_data = {
+            'licence': licence,
+            'name': player_info.get('name') or existing.get('name'),
+            'club_code': existing.get('club_code'),
+            'ranking': player_info.get('ranking') or existing.get('ranking'),
+            'category': existing.get('category'),
+            'points_start': player_info.get('points_start'),
+            'points_current': player_info.get('points_current') or existing.get('points_current'),
+            'ranking_position': player_info.get('ranking_position'),
+            'total_wins': player_info.get('total_wins', 0),
+            'total_losses': player_info.get('total_losses', 0),
+            'last_update': player_info.get('last_update'),
+        }
+
+        # Données féminines si présentes
+        women_stats = player_info.get('women_stats')
+        if women_stats:
+            player_data['women_points_start'] = women_stats.get('points_start')
+            player_data['women_points_current'] = women_stats.get('points_current')
+            player_data['women_total_wins'] = women_stats.get('total_wins', 0)
+            player_data['women_total_losses'] = women_stats.get('total_losses', 0)
+
+        queries.insert_player(player_data)
+
+        # Insérer les matchs masculins
+        for match in player_info.get('matches', []):
+            queries.insert_match({
+                **match,
+                'player_licence': licence,
+                'fiche_type': 'masculine'
+            })
+
+        # Insérer les statistiques masculines
+        for stat in player_info.get('stats_by_ranking', []):
+            queries.insert_player_stat({
+                **stat,
+                'player_licence': licence,
+                'fiche_type': 'masculine'
+            })
+
+        # Insérer les matchs et stats féminins si présents
+        if women_stats:
+            for match in women_stats.get('matches', []):
+                queries.insert_match({
+                    **match,
+                    'player_licence': licence,
+                    'fiche_type': 'feminine'
+                })
+            for stat in women_stats.get('stats_by_ranking', []):
+                queries.insert_player_stat({
+                    **stat,
+                    'player_licence': licence,
+                    'fiche_type': 'feminine'
+                })
+
+        # Retourner le joueur mis à jour
+        updated = queries.get_player(licence)
+        updated['stats_masculine'] = queries.get_player_stats(licence, 'masculine')
+        updated['stats_feminine'] = queries.get_player_stats(licence, 'feminine')
+        updated['matches_masculine'] = queries.get_player_matches(licence, 'masculine')
+        updated['matches_feminine'] = queries.get_player_matches(licence, 'feminine')
+
+        return {
+            "success": True,
+            "message": f"Joueur {licence} rescrappé avec succès",
+            "player": updated
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors du scraping: {str(e)}")
+
+
 @app.get("/api/players/{licence}/matches", tags=["Players"])
 async def get_player_matches(
     licence: str,

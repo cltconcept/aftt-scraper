@@ -239,6 +239,13 @@ def get_club_players(club_code: str) -> List[Dict]:
     return get_all_players(club_code=club_code, order_by="points_current DESC")
 
 
+def delete_player_matches_and_stats(licence: str) -> None:
+    """Supprime tous les matchs et stats d'un joueur pour permettre un rescraping propre."""
+    with get_db() as db:
+        db.execute("DELETE FROM matches WHERE player_licence = ?", (licence,))
+        db.execute("DELETE FROM player_stats WHERE player_licence = ?", (licence,))
+
+
 # =============================================================================
 # MATCHES
 # =============================================================================

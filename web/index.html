@@ -898,7 +898,10 @@
     <div class="detail-panel" id="detail-panel">
         <div class="detail-header">
             <h2 class="detail-title" id="detail-title">Détails</h2>
-            <button class="close-btn" id="close-detail">×</button>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <button class="close-btn" id="rescrape-btn" title="Rescraper ce joueur" style="display: none; font-size: 1.2rem; cursor: pointer;">🔄</button>
+                <button class="close-btn" id="close-detail">×</button>
+            </div>
         </div>
         <div class="detail-content" id="detail-content"></div>
     </div>
@@ -925,6 +928,7 @@
         const detailOverlay = document.getElementById('detail-overlay');
         const detailTitle = document.getElementById('detail-title');
         const detailContent = document.getElementById('detail-content');
+        const rescrapeBtn = document.getElementById('rescrape-btn');
 
         // Navigation
         navBtns.forEach(btn => {
@@ -962,9 +966,22 @@
         });
 
         // Detail Panel
+        let currentDetailLicence = null;
+
         function openDetail(title, content) {
             detailTitle.textContent = title;
             detailContent.innerHTML = content;
+            rescrapeBtn.style.display = 'none';
+            currentDetailLicence = null;
+            detailPanel.classList.add('open');
+            detailOverlay.classList.add('open');
+        }
+
+        function openPlayerDetail(title, content, licence) {
+            detailTitle.textContent = title;
+            detailContent.innerHTML = content;
+            currentDetailLicence = licence;
+            rescrapeBtn.style.display = 'inline-flex';
             detailPanel.classList.add('open');
             detailOverlay.classList.add('open');
         }
@@ -972,10 +989,39 @@
         function closeDetail() {
             detailPanel.classList.remove('open');
             detailOverlay.classList.remove('open');
+            currentDetailLicence = null;
+            rescrapeBtn.style.display = 'none';
         }
 
         document.getElementById('close-detail').addEventListener('click', closeDetail);
         detailOverlay.addEventListener('click', closeDetail);
+
+        // Rescrape un joueur
+        rescrapeBtn.addEventListener('click', async () => {
+            if (!currentDetailLicence) return;
+            const licence = currentDetailLicence;
+            rescrapeBtn.disabled = true;
+            rescrapeBtn.textContent = '⏳';
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/players/${licence}/scrape`, { method: 'POST' });
+                if (res.ok) {
+                    const data = await res.json();
+                    // Mettre à jour le state avec les nouvelles données
+                    state.players[licence] = data.player;
+                    // Réouvrir le détail avec les données fraîches
+                    await showPlayerDetail(licence);
+                } else {
+                    const err = await res.json();
+                    alert(`Erreur: ${err.detail || 'Échec du scraping'}`);
+                }
+            } catch (e) {
+                console.error('Erreur rescrape:', e);
+                alert('Erreur lors du rescraping. Vérifiez que l\'API est démarrée.');
+            } finally {
+                rescrapeBtn.disabled = false;
+                rescrapeBtn.textContent = '🔄';
+            }
+        });
 
         // JSON Syntax Highlighting
         function syntaxHighlight(json) {
@@ -2286,7 +2332,7 @@
                 <div class="json-viewer"><pre>${syntaxHighlight(player)}</pre></div>
             `;
 
-            openDetail(`${player.licence} - ${player.name}`, content);
+            openPlayerDetail(`${player.licence} - ${player.name}`, content, player.licence);
         }
 
         async function showPlayerFromLicence(licence) {
