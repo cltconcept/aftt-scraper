@@ -2249,8 +2249,18 @@
                     <h3 style="margin: 1.5rem 0 1rem; color: #ec4899;">📊 Fiche Féminine</h3>
                     <div class="info-grid">
                         <div class="info-item">
-                            <div class="info-label">Points</div>
+                            <div class="info-label">Points départ</div>
+                            <div class="info-value">${player.women_points_start?.toFixed(1) || 0} pts</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Points actuels</div>
                             <div class="info-value">${player.women_points_current?.toFixed(1) || 0} pts</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Évolution</div>
+                            <div class="info-value ${((player.women_points_current || 0) - (player.women_points_start || 0)) >= 0 ? 'positive' : 'negative'}">
+                                ${((player.women_points_current || 0) - (player.women_points_start || 0)) >= 0 ? '+' : ''}${((player.women_points_current || 0) - (player.women_points_start || 0)).toFixed(1)} pts
+                            </div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">Bilan</div>
