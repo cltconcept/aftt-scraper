@@ -2101,9 +2101,15 @@
                         <div class="info-value">${player.licence}</div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">Classement</div>
-                        <div class="info-value">${player.ranking || ''}</div>
+                        <div class="info-label">Clt. Masculin</div>
+                        <div class="info-value">${player.ranking || 'N/A'}</div>
                     </div>
+                    ${player.women_ranking ? `
+                    <div class="info-item">
+                        <div class="info-label">Clt. Féminin</div>
+                        <div class="info-value" style="color: #ec4899;">${player.women_ranking}</div>
+                    </div>
+                    ` : ''}
                     <div class="info-item">
                         <div class="info-label">Points départ</div>
                         <div class="info-value">${player.points_start?.toFixed(1) || 0} pts</div>

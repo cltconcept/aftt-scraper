@@ -242,6 +242,7 @@ CREATE TABLE IF NOT EXISTS players (
     ranking_position INTEGER,
     total_wins INTEGER DEFAULT 0,
     total_losses INTEGER DEFAULT 0,
+    women_ranking TEXT,
     women_points_start REAL,
     women_points_current REAL,
     women_total_wins INTEGER DEFAULT 0,

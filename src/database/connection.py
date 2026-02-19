@@ -83,6 +83,7 @@ def init_database(db_path: str = None) -> None:
         # Migrations: ajouter les colonnes manquantes aux tables existantes
         migrations = [
             "ALTER TABLE interclubs_divisions ADD COLUMN division_id TEXT",
+            "ALTER TABLE players ADD COLUMN women_ranking TEXT",
         ]
         for migration in migrations:
             try:

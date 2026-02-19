@@ -126,11 +126,11 @@ def insert_player(player: Dict[str, Any], db: sqlite3.Connection = None) -> None
     sql = """
     INSERT INTO players (licence, name, club_code, ranking, category, points_start,
                          points_current, ranking_position, total_wins, total_losses,
-                         women_points_start, women_points_current, women_total_wins,
+                         women_ranking, women_points_start, women_points_current, women_total_wins,
                          women_total_losses, last_update)
     VALUES (:licence, :name, :club_code, :ranking, :category, :points_start,
             :points_current, :ranking_position, :total_wins, :total_losses,
-            :women_points_start, :women_points_current, :women_total_wins,
+            :women_ranking, :women_points_start, :women_points_current, :women_total_wins,
             :women_total_losses, :last_update)
     ON CONFLICT(licence) DO UPDATE SET
         name = COALESCE(NULLIF(excluded.name, ''), players.name),
@@ -142,6 +142,7 @@ def insert_player(player: Dict[str, Any], db: sqlite3.Connection = None) -> None
         ranking_position = COALESCE(excluded.ranking_position, players.ranking_position),
         total_wins = COALESCE(excluded.total_wins, players.total_wins),
         total_losses = COALESCE(excluded.total_losses, players.total_losses),
+        women_ranking = COALESCE(NULLIF(excluded.women_ranking, ''), players.women_ranking),
         women_points_start = COALESCE(excluded.women_points_start, players.women_points_start),
         women_points_current = COALESCE(excluded.women_points_current, players.women_points_current),
         women_total_wins = COALESCE(excluded.women_total_wins, players.women_total_wins),
@@ -161,6 +162,7 @@ def insert_player(player: Dict[str, Any], db: sqlite3.Connection = None) -> None
         'ranking_position': player.get('ranking_position'),
         'total_wins': player.get('total_wins', 0),
         'total_losses': player.get('total_losses', 0),
+        'women_ranking': player.get('women_ranking'),
         'women_points_start': player.get('women_points_start'),
         'women_points_current': player.get('women_points_current'),
         'women_total_wins': player.get('women_total_wins', 0),

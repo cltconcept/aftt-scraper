@@ -392,6 +392,7 @@ def get_player_info(licence: str, include_women: bool = True) -> dict:
                 # (évite d'afficher une fiche vide pour les hommes)
                 if player_women.matches and len(player_women.matches) > 0:
                     result['women_stats'] = {
+                        'ranking': player_women.ranking,
                         'points_start': player_women.points_start,
                         'points_current': player_women.points_current,
                         'points_evolution': player_women.points_evolution,

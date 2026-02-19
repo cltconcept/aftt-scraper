@@ -453,11 +453,12 @@ async def scrape_club(code: str, include_ranking: bool = True):
                 # Données féminines si présentes
                 women_stats = player_info.get('women_stats')
                 if women_stats:
+                    player_data['women_ranking'] = women_stats.get('ranking')
                     player_data['women_points_start'] = women_stats.get('points_start')
                     player_data['women_points_current'] = women_stats.get('points_current')
                     player_data['women_total_wins'] = women_stats.get('total_wins', 0)
                     player_data['women_total_losses'] = women_stats.get('total_losses', 0)
-                
+
                 # Insérer/mettre à jour le joueur
                 queries.insert_player(player_data)
                 
@@ -725,6 +726,7 @@ async def scrape_single_player(licence: str):
         # Données féminines si présentes
         women_stats = player_info.get('women_stats')
         if women_stats:
+            player_data['women_ranking'] = women_stats.get('ranking')
             player_data['women_points_start'] = women_stats.get('points_start')
             player_data['women_points_current'] = women_stats.get('points_current')
             player_data['women_total_wins'] = women_stats.get('total_wins', 0)
@@ -1073,11 +1075,12 @@ async def run_full_scrape(task_id: int, trigger_type: str):
                             # Données féminines si présentes
                             women_stats = player_info.get('women_stats')
                             if women_stats:
+                                updated_data['women_ranking'] = women_stats.get('ranking')
                                 updated_data['women_points_start'] = women_stats.get('points_start')
                                 updated_data['women_points_current'] = women_stats.get('points_current')
                                 updated_data['women_total_wins'] = women_stats.get('total_wins', 0)
                                 updated_data['women_total_losses'] = women_stats.get('total_losses', 0)
-                            
+
                             # Insérer/mettre à jour le joueur
                             queries.insert_player(updated_data)
                             
