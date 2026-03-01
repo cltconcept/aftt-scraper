@@ -276,7 +276,7 @@ CREATE TABLE IF NOT EXISTS player_stats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     player_licence TEXT NOT NULL REFERENCES players(licence),
     fiche_type TEXT DEFAULT 'masculine',
-    opponent_ranking TEXT NOT NULL,
+    opponent_ranking TEXT,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
     ratio REAL DEFAULT 0.0,

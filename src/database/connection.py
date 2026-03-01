@@ -89,6 +89,22 @@ def init_database(db_path: str = None) -> None:
 MIGRATIONS = [
     (1, "ALTER TABLE interclubs_divisions ADD COLUMN division_id TEXT"),
     (2, "ALTER TABLE players ADD COLUMN women_ranking TEXT"),
+    (3, """
+        CREATE TABLE IF NOT EXISTS player_stats_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_licence TEXT NOT NULL REFERENCES players(licence),
+            fiche_type TEXT DEFAULT 'masculine',
+            opponent_ranking TEXT,
+            wins INTEGER DEFAULT 0,
+            losses INTEGER DEFAULT 0,
+            ratio REAL DEFAULT 0.0,
+            UNIQUE(player_licence, fiche_type, opponent_ranking)
+        );
+        INSERT OR IGNORE INTO player_stats_new SELECT * FROM player_stats;
+        DROP TABLE player_stats;
+        ALTER TABLE player_stats_new RENAME TO player_stats;
+        CREATE INDEX IF NOT EXISTS idx_player_stats_licence_fiche ON player_stats(player_licence, fiche_type);
+    """),
 ]
 
 
@@ -109,7 +125,10 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         if version <= current_version:
             continue
         try:
-            conn.execute(sql)
+            if '\n' in sql.strip() and ';' in sql:
+                conn.executescript(sql)
+            else:
+                conn.execute(sql)
             conn.execute("INSERT INTO schema_version (version) VALUES (?)", (version,))
             applied += 1
             logger.info(f"[MIGRATION] v{version} appliquée")

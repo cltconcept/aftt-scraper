@@ -345,6 +345,7 @@ def insert_player_stats_batch(stats: list, db: sqlite3.Connection = None) -> int
             'ratio': s.get('ratio', 0.0),
         }
         for s in stats
+        if s.get('opponent_ranking')
     ]
     if db:
         db.executemany(sql, rows)
