@@ -16,12 +16,15 @@ from typing import List, Optional, Dict
 import logging
 import os
 
-# Configuration du logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
+
+# Session HTTP partagée pour réutiliser les connexions TCP (keep-alive)
+_session = requests.Session()
+_session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+})
 
 # URLs des pages fiche joueur
 AFTT_FICHE_URL = "https://data.aftt.be/tools/fiche.php"
@@ -106,16 +109,10 @@ def fetch_player_page(licence: str, women: bool = False, max_retries: int = 3) -
     url = AFTT_FICHE_WOMEN_URL if women else AFTT_FICHE_URL
     fiche_type = "feminine" if women else "masculine"
     logger.info(f"Recuperation de la fiche {fiche_type} du joueur {licence}...")
-    
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
-    }
-    
+
     # Utiliser GET avec licenceID
     params = {'licenceID': licence}
-    
+
     last_error = None
     for attempt in range(max_retries):
         try:
@@ -124,8 +121,8 @@ def fetch_player_page(licence: str, women: bool = False, max_retries: int = 3) -
                 delay = 2 ** attempt  # 2s, 4s, 8s...
                 logger.info(f"Retry {attempt + 1}/{max_retries} après {delay}s...")
                 time.sleep(delay)
-            
-            response = requests.get(url, params=params, headers=headers, timeout=30)
+
+            response = _session.get(url, params=params, timeout=30)
             response.raise_for_status()
             response.encoding = 'utf-8'
             logger.info(f"Page recuperee avec succes (status: {response.status_code})")

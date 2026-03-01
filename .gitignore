@@ -27,12 +27,11 @@ data/*.html
 data/*.txt
 data/*.png
 
-# Tests et debug temporaires
-test_*.py
-debug_*.py
-check_*.py
-fix_*.py
-find_*.py
+# Scripts debug temporaires (à la racine uniquement)
+/debug_*.py
+/check_*.py
+/fix_*.py
+/find_*.py
 
 # Logs
 *.log
@@ -40,6 +39,10 @@ find_*.py
 # OS
 .DS_Store
 Thumbs.db
+nul
 
 # Terminals (Cursor)
 terminals/
+
+# Claude Code
+.claude/

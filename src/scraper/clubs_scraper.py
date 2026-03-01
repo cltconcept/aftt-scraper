@@ -13,11 +13,6 @@ from dataclasses import dataclass, asdict
 from typing import List, Optional
 import logging
 
-# Configuration du logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 # URL de la page des classements AFTT

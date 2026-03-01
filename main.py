@@ -28,8 +28,11 @@ import os
 if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-# Ajouter le répertoire src au path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+# Ajouter le répertoire racine au path
+sys.path.insert(0, os.path.dirname(__file__))
+
+from src.logging_config import setup_logging
+setup_logging()
 
 from scraper.clubs_scraper import main as scrape_clubs, get_all_clubs
 from scraper.members_scraper import main as scrape_members, get_club_members, save_members_to_json

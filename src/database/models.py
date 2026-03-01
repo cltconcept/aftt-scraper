@@ -388,6 +388,8 @@ CREATE INDEX IF NOT EXISTS idx_players_points ON players(points_current);
 CREATE INDEX IF NOT EXISTS idx_matches_player ON matches(player_licence);
 CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date);
 CREATE INDEX IF NOT EXISTS idx_matches_opponent ON matches(opponent_licence);
+CREATE INDEX IF NOT EXISTS idx_matches_player_fiche ON matches(player_licence, fiche_type);
+CREATE INDEX IF NOT EXISTS idx_player_stats_licence_fiche ON player_stats(player_licence, fiche_type);
 CREATE INDEX IF NOT EXISTS idx_clubs_province ON clubs(province);
 CREATE INDEX IF NOT EXISTS idx_scrape_tasks_status ON scrape_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tournaments_level ON tournaments(level);

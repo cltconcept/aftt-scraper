@@ -1,16 +1,16 @@
 # Web scraping
-requests>=2.31.0
-beautifulsoup4>=4.12.0
+requests>=2.32.0
+beautifulsoup4>=4.12.3
 
 # Browser automation (pour scraper le classement numérique)
-playwright>=1.40.0
+playwright>=1.49.0
 
 # API
-fastapi>=0.109.0
-uvicorn[standard]>=0.27.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
 
 # Database (SQLite is built-in)
 # No additional dependencies needed
 
-# Optional: for better JSON handling
-python-multipart>=0.0.6
+# Form data handling
+python-multipart>=0.0.18

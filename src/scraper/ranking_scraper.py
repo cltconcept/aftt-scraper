@@ -19,10 +19,9 @@ import asyncio
 from typing import List, Dict, Optional
 from dataclasses import dataclass, asdict
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# Pattern de validation pour les codes club (ex: H004, BW023)
+CLUB_CODE_PATTERN = re.compile(r'^[A-Z]{1,3}\d{2,4}$')
+
 logger = logging.getLogger(__name__)
 
 RANKING_URL = "https://data.aftt.be/ranking/clubs.php"
@@ -67,7 +66,9 @@ def get_club_ranking_players(club_code: str, timeout: int = 30000) -> Dict:
     Returns:
         Dict avec les joueurs messieurs et dames
     """
-    club_code = club_code.upper()
+    club_code = club_code.strip().upper()
+    if not CLUB_CODE_PATTERN.match(club_code):
+        raise ValueError(f"Code club invalide: {club_code}. Format attendu: lettres + chiffres (ex: H004)")
     logger.info(f"Récupération du classement pour le club {club_code}...")
     
     result = {
@@ -187,7 +188,7 @@ def _parse_datatable(table, club_code: str, gender: str) -> List[Dict]:
             # Points
             try:
                 points = float(cell_texts[6])
-            except:
+            except (ValueError, IndexError):
                 points = 0.0
             
             # Licence (dans le lien "Voir fiche")

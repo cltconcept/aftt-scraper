@@ -16,15 +16,18 @@ from typing import List, Optional
 import logging
 import os
 
-# Configuration du logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 # URL de la page de l'annuaire des membres
 AFTT_MEMBERS_URL = "https://data.aftt.be/annuaire/membres.php"
+
+# Session HTTP partagée pour réutiliser les connexions TCP (keep-alive)
+_session = requests.Session()
+_session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+})
 
 
 @dataclass
@@ -201,17 +204,10 @@ def fetch_club_members_page(club_code: str, max_retries: int = 3) -> str:
     import time
     
     logger.info(f"Recuperation des membres du club {club_code} via POST...")
-    
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
-        'Content-Type': 'application/x-www-form-urlencoded',
-    }
-    
+
     # Le formulaire utilise POST avec le paramètre 'indice'
     data = {'indice': club_code}
-    
+
     last_error = None
     for attempt in range(max_retries):
         try:
@@ -220,8 +216,8 @@ def fetch_club_members_page(club_code: str, max_retries: int = 3) -> str:
                 delay = 2 ** attempt  # 2s, 4s, 8s...
                 logger.info(f"Retry {attempt + 1}/{max_retries} après {delay}s...")
                 time.sleep(delay)
-            
-            response = requests.post(AFTT_MEMBERS_URL, data=data, headers=headers, timeout=30)
+
+            response = _session.post(AFTT_MEMBERS_URL, data=data, timeout=30)
             response.raise_for_status()
             response.encoding = response.apparent_encoding
             logger.info(f"Page recuperee avec succes (status: {response.status_code})")

@@ -12,7 +12,7 @@ from .models import Club, Player, Match, PlayerStats, InterclubsDivision, Interc
 # =============================================================================
 
 def insert_club(club: Dict[str, Any], db: sqlite3.Connection = None) -> None:
-    """Insère ou met à jour un club."""
+    """Insere ou met a jour un club (upsert par code). Les champs NULL ne remplacent pas les valeurs existantes."""
     sql = """
     INSERT INTO clubs (code, name, province, full_name, email, phone, status, 
                        website, has_shower, venue_name, venue_address, venue_phone,
@@ -122,7 +122,7 @@ def get_provinces() -> List[str]:
 # =============================================================================
 
 def insert_player(player: Dict[str, Any], db: sqlite3.Connection = None) -> None:
-    """Insère ou met à jour un joueur."""
+    """Insere ou met a jour un joueur (upsert par licence). Gere fiches masculine et feminine."""
     sql = """
     INSERT INTO players (licence, name, club_code, ranking, category, points_start,
                          points_current, ranking_position, total_wins, total_losses,
@@ -187,7 +187,7 @@ def get_all_players(
     offset: int = 0,
     order_by: str = "points_current DESC"
 ) -> List[Dict]:
-    """Récupère les joueurs avec filtres."""
+    """Recupere les joueurs avec filtres combines. order_by est valide contre une whitelist pour eviter l'injection SQL."""
     sql = "SELECT * FROM players WHERE 1=1"
     params = []
     
@@ -285,13 +285,83 @@ def insert_match(match: Dict[str, Any], db: sqlite3.Connection = None) -> None:
             conn.execute(sql, data)
 
 
+def insert_matches_batch(matches: list, db: sqlite3.Connection = None) -> int:
+    """Insère un batch de matchs en une seule transaction. Retourne le nombre inséré."""
+    if not matches:
+        return 0
+    sql = """
+    INSERT OR IGNORE INTO matches (player_licence, fiche_type, date, division,
+                                   opponent_club, opponent_name, opponent_licence,
+                                   opponent_ranking, opponent_points, score, won, points_change)
+    VALUES (:player_licence, :fiche_type, :date, :division, :opponent_club,
+            :opponent_name, :opponent_licence, :opponent_ranking, :opponent_points,
+            :score, :won, :points_change)
+    """
+    rows = [
+        {
+            'player_licence': m.get('player_licence'),
+            'fiche_type': m.get('fiche_type', 'masculine'),
+            'date': m.get('date'),
+            'division': m.get('division'),
+            'opponent_club': m.get('opponent_club'),
+            'opponent_name': m.get('opponent_name'),
+            'opponent_licence': m.get('opponent_licence'),
+            'opponent_ranking': m.get('opponent_ranking'),
+            'opponent_points': m.get('opponent_points'),
+            'score': m.get('score'),
+            'won': m.get('won', False),
+            'points_change': m.get('points_change'),
+        }
+        for m in matches
+    ]
+    if db:
+        db.executemany(sql, rows)
+        return len(rows)
+    else:
+        with get_db() as conn:
+            conn.executemany(sql, rows)
+            return len(rows)
+
+
+def insert_player_stats_batch(stats: list, db: sqlite3.Connection = None) -> int:
+    """Insère un batch de statistiques par classement. Retourne le nombre inséré."""
+    if not stats:
+        return 0
+    sql = """
+    INSERT INTO player_stats (player_licence, fiche_type, opponent_ranking, wins, losses, ratio)
+    VALUES (:player_licence, :fiche_type, :opponent_ranking, :wins, :losses, :ratio)
+    ON CONFLICT(player_licence, fiche_type, opponent_ranking) DO UPDATE SET
+        wins = excluded.wins,
+        losses = excluded.losses,
+        ratio = excluded.ratio
+    """
+    rows = [
+        {
+            'player_licence': s.get('player_licence'),
+            'fiche_type': s.get('fiche_type', 'masculine'),
+            'opponent_ranking': s.get('opponent_ranking'),
+            'wins': s.get('wins', 0),
+            'losses': s.get('losses', 0),
+            'ratio': s.get('ratio', 0.0),
+        }
+        for s in stats
+    ]
+    if db:
+        db.executemany(sql, rows)
+        return len(rows)
+    else:
+        with get_db() as conn:
+            conn.executemany(sql, rows)
+            return len(rows)
+
+
 def get_player_matches(
     licence: str,
     fiche_type: str = None,
     opponent_licence: str = None,
     limit: int = None
 ) -> List[Dict]:
-    """Récupère les matchs d'un joueur."""
+    """Recupere les matchs d'un joueur, filtrable par type de fiche et adversaire."""
     sql = "SELECT * FROM matches WHERE player_licence = ?"
     params = [licence]
     
@@ -315,34 +385,26 @@ def get_player_matches(
 
 
 def get_head_to_head(licence1: str, licence2: str) -> Dict:
-    """Récupère l'historique des confrontations entre deux joueurs."""
+    """Confrontations directes entre deux joueurs. Retourne victoires de chaque cote et liste des matchs."""
     with get_db() as db:
-        # Matchs de licence1 contre licence2
         cursor = db.execute("""
-            SELECT * FROM matches 
-            WHERE player_licence = ? AND opponent_licence = ?
+            SELECT * FROM matches
+            WHERE (player_licence = ? AND opponent_licence = ?)
+               OR (player_licence = ? AND opponent_licence = ?)
             ORDER BY date DESC
-        """, (licence1, licence2))
-        matches_1v2 = [dict(row) for row in cursor.fetchall()]
-        
-        # Matchs de licence2 contre licence1
-        cursor = db.execute("""
-            SELECT * FROM matches 
-            WHERE player_licence = ? AND opponent_licence = ?
-            ORDER BY date DESC
-        """, (licence2, licence1))
-        matches_2v1 = [dict(row) for row in cursor.fetchall()]
-        
-        wins_1 = sum(1 for m in matches_1v2 if m['won'])
-        wins_2 = sum(1 for m in matches_2v1 if m['won'])
-        
+        """, (licence1, licence2, licence2, licence1))
+        all_matches = [dict(row) for row in cursor.fetchall()]
+
+        wins_1 = sum(1 for m in all_matches if m['player_licence'] == licence1 and m['won'])
+        wins_2 = sum(1 for m in all_matches if m['player_licence'] == licence2 and m['won'])
+
         return {
             'player1_licence': licence1,
             'player2_licence': licence2,
             'player1_wins': wins_1,
             'player2_wins': wins_2,
-            'total_matches': len(matches_1v2) + len(matches_2v1),
-            'matches': matches_1v2 + matches_2v1
+            'total_matches': len(all_matches),
+            'matches': all_matches
         }
 
 
@@ -403,7 +465,7 @@ def get_top_players(
     club_code: str = None,
     ranking: str = None
 ) -> List[Dict]:
-    """Récupère le classement des meilleurs joueurs."""
+    """Classement des joueurs par points decroissants avec jointure sur le nom du club."""
     sql = """
         SELECT p.*, c.name as club_name, c.province
         FROM players p
@@ -433,7 +495,7 @@ def get_top_players(
 
 
 def get_top_progressions(limit: int = 100) -> List[Dict]:
-    """Récupère les meilleures progressions de la saison."""
+    """Joueurs avec la plus grande difference (points_current - points_start) sur la saison."""
     sql = """
         SELECT p.*, c.name as club_name,
                (p.points_current - p.points_start) as progression
@@ -450,7 +512,7 @@ def get_top_progressions(limit: int = 100) -> List[Dict]:
 
 
 def search_players(query: str, limit: int = 50) -> List[Dict]:
-    """Recherche de joueurs par nom ou licence."""
+    """Recherche par nom (LIKE) ou licence dans toute la base, triee par points decroissants."""
     sql = """
         SELECT p.*, c.name as club_name
         FROM players p
@@ -491,7 +553,7 @@ def update_scrape_task(
     errors_count: int = None,
     errors_detail: str = None
 ):
-    """Met à jour une tâche de scraping."""
+    """Met a jour une tache de scraping. Seuls les champs non-None sont modifies. Ajoute finished_at lors d'un statut terminal."""
     updates = []
     values = []
     
@@ -926,7 +988,7 @@ def insert_interclubs_division(division: Dict[str, Any], db: sqlite3.Connection 
 
 
 def insert_interclubs_ranking(ranking: Dict[str, Any], db: sqlite3.Connection = None) -> None:
-    """Insère ou met à jour un classement interclubs."""
+    """Insere ou met a jour un classement interclubs (upsert par division_index+week+team_name)."""
     sql = """
     INSERT INTO interclubs_rankings (division_index, division_name, week, rank, team_name,
                                      played, wins, losses, draws, forfeits, points)
@@ -981,22 +1043,24 @@ def insert_interclubs_rankings_batch(rankings: List[Dict[str, Any]]) -> None:
         forfeits = excluded.forfeits,
         points = excluded.points
     """
+    rows = [
+        {
+            'division_index': r.get('division_index'),
+            'division_name': r.get('division_name'),
+            'week': r.get('week'),
+            'rank': r.get('rank'),
+            'team_name': r.get('team_name'),
+            'played': r.get('played', 0),
+            'wins': r.get('wins', 0),
+            'losses': r.get('losses', 0),
+            'draws': r.get('draws', 0),
+            'forfeits': r.get('forfeits', 0),
+            'points': r.get('points', 0),
+        }
+        for r in rankings
+    ]
     with get_db() as conn:
-        for ranking in rankings:
-            data = {
-                'division_index': ranking.get('division_index'),
-                'division_name': ranking.get('division_name'),
-                'week': ranking.get('week'),
-                'rank': ranking.get('rank'),
-                'team_name': ranking.get('team_name'),
-                'played': ranking.get('played', 0),
-                'wins': ranking.get('wins', 0),
-                'losses': ranking.get('losses', 0),
-                'draws': ranking.get('draws', 0),
-                'forfeits': ranking.get('forfeits', 0),
-                'points': ranking.get('points', 0),
-            }
-            conn.execute(sql, data)
+        conn.executemany(sql, rows)
 
 
 def get_interclubs_divisions(category: str = None, gender: str = None) -> List[Dict]:
@@ -1070,22 +1134,21 @@ def delete_interclubs_rankings(division_index: int = None, week: int = None) -> 
 
 
 def get_interclubs_stats() -> Dict:
-    """Récupère des statistiques sur les données interclubs."""
+    """Stats interclubs en une seule requete : divisions, rankings, equipes, semaines min/max."""
     with get_db() as db:
-        cursor = db.execute("SELECT COUNT(*) FROM interclubs_divisions")
-        divisions_count = cursor.fetchone()[0]
-        cursor = db.execute("SELECT COUNT(*) FROM interclubs_rankings")
-        rankings_count = cursor.fetchone()[0]
-        cursor = db.execute("SELECT COUNT(DISTINCT team_name) FROM interclubs_rankings")
-        teams_count = cursor.fetchone()[0]
-        cursor = db.execute("SELECT MIN(week), MAX(week) FROM interclubs_rankings")
+        cursor = db.execute("""
+            SELECT
+                (SELECT COUNT(*) FROM interclubs_divisions) as divisions_count,
+                (SELECT COUNT(*) FROM interclubs_rankings) as rankings_count,
+                (SELECT COUNT(DISTINCT team_name) FROM interclubs_rankings) as teams_count,
+                (SELECT MIN(week) FROM interclubs_rankings) as min_week,
+                (SELECT MAX(week) FROM interclubs_rankings) as max_week
+        """)
         row = cursor.fetchone()
-        min_week = row[0]
-        max_week = row[1]
     return {
-        'divisions_count': divisions_count,
-        'rankings_count': rankings_count,
-        'teams_count': teams_count,
-        'min_week': min_week,
-        'max_week': max_week,
+        'divisions_count': row[0],
+        'rankings_count': row[1],
+        'teams_count': row[2],
+        'min_week': row[3],
+        'max_week': row[4],
     }

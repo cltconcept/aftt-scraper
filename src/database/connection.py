@@ -8,16 +8,14 @@ from typing import Generator
 import logging
 
 from .models import CREATE_TABLES_SQL
+from src.config import DB_PATH
 
 logger = logging.getLogger(__name__)
-
-# Chemin par défaut de la base de données
-DEFAULT_DB_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'aftt.db')
 
 
 def get_db_path() -> str:
     """Retourne le chemin de la base de données."""
-    return os.environ.get('AFTT_DB_PATH', DEFAULT_DB_PATH)
+    return os.environ.get('AFTT_DB_PATH', DB_PATH)
 
 
 def get_connection(db_path: str = None) -> sqlite3.Connection:
@@ -80,20 +78,50 @@ def init_database(db_path: str = None) -> None:
     conn = get_connection(db_path)
     try:
         conn.executescript(CREATE_TABLES_SQL)
-        # Migrations: ajouter les colonnes manquantes aux tables existantes
-        migrations = [
-            "ALTER TABLE interclubs_divisions ADD COLUMN division_id TEXT",
-            "ALTER TABLE players ADD COLUMN women_ranking TEXT",
-        ]
-        for migration in migrations:
-            try:
-                conn.execute(migration)
-            except sqlite3.OperationalError:
-                pass  # Colonne deja existante
+        _run_migrations(conn)
         conn.commit()
         logger.info("Tables créées avec succès")
     finally:
         conn.close()
+
+
+# Migrations numérotées - ajouter les nouvelles à la fin
+MIGRATIONS = [
+    (1, "ALTER TABLE interclubs_divisions ADD COLUMN division_id TEXT"),
+    (2, "ALTER TABLE players ADD COLUMN women_ranking TEXT"),
+]
+
+
+def _run_migrations(conn: sqlite3.Connection) -> None:
+    """Exécute les migrations non encore appliquées."""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS schema_version (
+            version INTEGER PRIMARY KEY,
+            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cursor = conn.execute("SELECT COALESCE(MAX(version), 0) FROM schema_version")
+    current_version = cursor.fetchone()[0]
+
+    applied = 0
+    for version, sql in MIGRATIONS:
+        if version <= current_version:
+            continue
+        try:
+            conn.execute(sql)
+            conn.execute("INSERT INTO schema_version (version) VALUES (?)", (version,))
+            applied += 1
+            logger.info(f"[MIGRATION] v{version} appliquée")
+        except sqlite3.OperationalError as e:
+            # Colonne déjà existante ou migration déjà appliquée manuellement
+            conn.execute(
+                "INSERT OR IGNORE INTO schema_version (version) VALUES (?)", (version,)
+            )
+            logger.info(f"[MIGRATION] v{version} ignorée (déjà appliquée): {e}")
+
+    if applied:
+        logger.info(f"[MIGRATION] {applied} migration(s) appliquée(s)")
 
 
 def reset_database(db_path: str = None) -> None:

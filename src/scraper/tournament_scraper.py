@@ -13,11 +13,6 @@ from typing import List, Optional, Dict, Any
 import logging
 import time
 
-# Configuration du logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 # URLs de base

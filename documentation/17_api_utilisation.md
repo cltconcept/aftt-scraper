@@ -625,6 +625,386 @@ GET https://lkkkwcg88c04c4g8kgw884ko.chris-ia.com/api/search?q=DEB&limit=20
 
 ---
 
+### 🏓 Tournois
+
+#### GET /api/tournaments
+Liste les tournois avec filtres.
+
+**Requete - Tous les tournois :**
+```
+GET /api/tournaments
+```
+
+**Requete - Filtrer par niveau :**
+```
+GET /api/tournaments?level=Provincial
+```
+
+**Requete - Filtrer par dates :**
+```
+GET /api/tournaments?date_from=01/01/2025&date_to=31/03/2025
+```
+
+**Requete - Recherche :**
+```
+GET /api/tournaments?search=manage&limit=50
+```
+
+**Reponse :**
+```json
+{
+  "count": 15,
+  "tournaments": [
+    {
+      "t_id": 6310,
+      "name": "TOURNOI DE MANAGE",
+      "level": "Provincial",
+      "date": "15/02/2025",
+      "venue": "Salle omnisports"
+    }
+  ]
+}
+```
+
+---
+
+#### GET /api/tournaments/levels
+Liste les niveaux de tournois disponibles.
+
+```
+GET /api/tournaments/levels
+```
+
+**Reponse :**
+```json
+{
+  "levels": ["National", "Provincial", "Regional"]
+}
+```
+
+---
+
+#### GET /api/tournaments/{id}
+Detail d'un tournoi.
+
+```
+GET /api/tournaments/6310
+```
+
+---
+
+#### GET /api/tournaments/{id}/series
+Series d'un tournoi.
+
+```
+GET /api/tournaments/6310/series
+```
+
+**Reponse :**
+```json
+{
+  "tournament": {"t_id": 6310, "name": "TOURNOI DE MANAGE"},
+  "count": 4,
+  "series": [
+    {"series_name": "Serie A (E0-D0)", "series_type": "Individuel"},
+    {"series_name": "Serie B (D2-E6)", "series_type": "Individuel"}
+  ]
+}
+```
+
+---
+
+#### GET /api/tournaments/{id}/inscriptions
+Inscriptions a un tournoi (filtrable par serie).
+
+```
+GET /api/tournaments/6310/inscriptions?series_name=Serie+A
+```
+
+---
+
+#### GET /api/tournaments/{id}/results
+Resultats d'un tournoi (filtrable par serie).
+
+```
+GET /api/tournaments/6310/results?series_name=Serie+A
+```
+
+---
+
+#### POST /api/tournaments/{id}/scrape
+Rescrape un tournoi (series, inscriptions, resultats).
+
+```
+POST /api/tournaments/6310/scrape
+```
+
+---
+
+### ⚔ Interclubs
+
+#### GET /api/interclubs/divisions
+Liste les divisions interclubs.
+
+**Requete - Filtrer par categorie :**
+```
+GET /api/interclubs/divisions?category=National
+```
+
+**Requete - Filtrer par genre :**
+```
+GET /api/interclubs/divisions?gender=Hommes
+```
+
+**Reponse :**
+```json
+{
+  "count": 45,
+  "divisions": [
+    {
+      "division_index": 1,
+      "division_name": "Super Division Hommes",
+      "division_category": "National",
+      "division_gender": "Hommes"
+    }
+  ]
+}
+```
+
+---
+
+#### GET /api/interclubs/rankings
+Classement d'une division pour une semaine.
+
+```
+GET /api/interclubs/rankings?division_index=1&week=10
+```
+
+**Reponse :**
+```json
+{
+  "division_index": 1,
+  "week": 10,
+  "count": 8,
+  "rankings": [
+    {
+      "rank": 1,
+      "team_name": "ETT MANAGE A",
+      "played": 10,
+      "wins": 8,
+      "losses": 2,
+      "points": 26
+    }
+  ]
+}
+```
+
+---
+
+#### GET /api/interclubs/team/{team_name}/history
+Evolution d'une equipe semaine par semaine.
+
+```
+GET /api/interclubs/team/ETT%20MANAGE%20A/history
+```
+
+---
+
+#### GET /api/interclubs/search
+Recherche d'equipes par nom.
+
+```
+GET /api/interclubs/search?q=MANAGE&limit=20
+```
+
+---
+
+#### GET /api/interclubs/stats
+Statistiques interclubs (divisions, equipes, semaines).
+
+```
+GET /api/interclubs/stats
+```
+
+---
+
+### ⚙ Scraping Management
+
+#### POST /api/scrape/all
+Lance un scraping complet de tous les clubs et joueurs en arriere-plan.
+
+```
+POST /api/scrape/all?trigger=manual
+```
+
+**Reponse :**
+```json
+{
+  "status": "started",
+  "task_id": 42,
+  "total_clubs": 823,
+  "message": "Scraping de 823 clubs demarre en arriere-plan"
+}
+```
+
+---
+
+#### GET /api/scrape/status
+Statut du scraping en cours.
+
+```
+GET /api/scrape/status
+```
+
+**Reponse :**
+```json
+{
+  "running": true,
+  "task_id": 42,
+  "total_clubs": 823,
+  "completed_clubs": 150,
+  "total_players": 5200,
+  "current_club": "H004",
+  "current_province": "Hainaut",
+  "progress_percent": 18.2
+}
+```
+
+---
+
+#### POST /api/scrape/cancel
+Annule le scraping en cours.
+
+```
+POST /api/scrape/cancel
+```
+
+---
+
+#### GET /api/scrape/logs/{task_id}
+Logs en temps reel d'une tache de scraping.
+
+```
+GET /api/scrape/logs/42
+```
+
+---
+
+#### GET /api/scrape/history
+Historique des taches de scraping.
+
+```
+GET /api/scrape/history?limit=10
+```
+
+---
+
+#### POST /api/scrape/tournaments
+Lance le scraping de tous les tournois.
+
+```
+POST /api/scrape/tournaments
+```
+
+---
+
+#### GET /api/scrape/tournaments/status
+Statut du scraping des tournois.
+
+```
+GET /api/scrape/tournaments/status
+```
+
+---
+
+#### POST /api/scrape/tournaments/cancel
+Annule le scraping des tournois en cours.
+
+```
+POST /api/scrape/tournaments/cancel
+```
+
+---
+
+#### POST /api/scrape/interclubs
+Lance le scraping des classements interclubs.
+
+```
+POST /api/scrape/interclubs?weeks=1-5&divisions=1,2,3
+```
+
+**Parametres optionnels :**
+- `weeks` : Semaines a scraper (ex: `1,2,3` ou `1-5`). Defaut: 1-22
+- `divisions` : Indices de divisions (ex: `1,5,10`). Defaut: toutes
+- `resume_division` + `resume_week` : Reprendre depuis un point donne
+
+---
+
+#### POST /api/scrape/interclubs/cancel
+Annule le scraping interclubs en cours.
+
+```
+POST /api/scrape/interclubs/cancel
+```
+
+---
+
+#### POST /api/players/{licence}/scrape
+Rescrape la fiche d'un joueur individuel.
+
+```
+POST /api/players/176506/scrape
+```
+
+---
+
+#### POST /api/scrape/refresh-clubs
+Rafraichit la liste des clubs depuis le site AFTT sans scraper les joueurs.
+
+```
+POST /api/scrape/refresh-clubs
+```
+
+---
+
+### 📊 Stats additionnelles
+
+#### GET /api/stats/last-scrape-date
+Date du dernier scraping reussi.
+
+```
+GET /api/stats/last-scrape-date
+```
+
+---
+
+#### GET /api/stats/clubs-count
+Nombre de clubs en base.
+
+```
+GET /api/stats/clubs-count
+```
+
+---
+
+#### GET /api/stats/active-players-count
+Nombre de joueurs ayant au moins un match enregistre.
+
+```
+GET /api/stats/active-players-count
+```
+
+---
+
+#### GET /api/stats/detailed
+Diagnostics detailles : matchs par type, dates recentes, top joueurs.
+
+```
+GET /api/stats/detailed
+```
+
+---
+
 ## Exemples de Code
 
 ### JavaScript (Fetch)
@@ -715,17 +1095,21 @@ curl "https://lkkkwcg88c04c4g8kgw884ko.chris-ia.com/api/rankings/top?limit=100"
 
 | Code | Description |
 |------|-------------|
-| `200` | Succès |
-| `404` | Ressource non trouvée (club/joueur inexistant) |
-| `422` | Paramètres invalides |
-| `500` | Erreur serveur (souvent lors du scraping) |
+| `200` | Succes |
+| `400` | Parametre invalide (licence, code club) |
+| `404` | Ressource non trouvee (club/joueur/tournoi inexistant) |
+| `409` | Conflit (scraping deja en cours) |
+| `422` | Parametres de validation invalides |
+| `500` | Erreur serveur |
 
 ---
 
 ## Notes Importantes
 
-- **CORS** : L'API accepte les requêtes depuis n'importe quelle origine (`*`)
-- **Scraping** : Le POST `/api/clubs/{code}/scrape` peut prendre 30-60 secondes
-- **Données** : Proviennent du site officiel AFTT (aftt.be et data.aftt.be)
-- **Mise à jour** : Les données ne sont mises à jour que via le scraping manuel
-- **Rate Limit** : Pas de limite actuellement, mais soyez raisonnable 😊
+- **CORS** : Configurable via `AFTT_CORS_ORIGINS` (defaut: `*`)
+- **Scraping club** : Le POST `/api/clubs/{code}/scrape` peut prendre 30-60 secondes
+- **Scraping global** : Le POST `/api/scrape/all` tourne en arriere-plan, suivre via `/api/scrape/status`
+- **Annulation** : Tous les scrapings (global, tournois, interclubs) supportent l'annulation via `/cancel`
+- **Cache** : Certains endpoints sont mis en cache (stats 60s, provinces 600s, niveaux tournois 600s)
+- **Donnees** : Proviennent du site officiel AFTT (aftt.be et data.aftt.be)
+- **Documentation interactive** : Swagger UI sur `/docs`, ReDoc sur `/redoc`

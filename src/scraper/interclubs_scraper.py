@@ -21,10 +21,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from src.database.models import InterclubsDivision, InterclubsRanking
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 RANKINGS_URL = "https://data.aftt.be/interclubs/rankings_division.php"
@@ -93,50 +89,54 @@ def _navigate_to_division_week(page, division_index: int, week: int):
     division_index est l'index positionnel dans le <select>.
     On utilise expect_navigation pour attendre le rechargement apres form.submit().
     """
+    # Valider les entrées (protection contre injection)
+    division_index = int(division_index)
+    week = int(week)
+
     # Selectionner la division et soumettre
     with page.expect_navigation(wait_until='networkidle', timeout=15000):
-        page.evaluate(f"""
-            () => {{
+        page.evaluate("""
+            (divIdx) => {
                 const select = document.getElementById('divisionSelect');
-                if (select) {{
-                    select.selectedIndex = {division_index};
-                    select.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    if (select.form) {{
+                if (select) {
+                    select.selectedIndex = divIdx;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                    if (select.form) {
                         select.form.submit();
-                    }}
-                }}
-            }}
-        """)
+                    }
+                }
+            }
+        """, division_index)
     # Attendre le rendu JS du contenu
     try:
         page.wait_for_selector('table', timeout=5000)
-    except:
+    except TimeoutError:
         pass
     page.wait_for_timeout(500)
 
     # Modifier la semaine et soumettre
     with page.expect_navigation(wait_until='networkidle', timeout=15000):
-        page.evaluate(f"""
-            () => {{
+        page.evaluate("""
+            (weekNum) => {
                 const weekInput = document.getElementById('week-input');
                 const weekSelect = document.getElementById('week-select');
-                if (weekInput) {{
-                    weekInput.value = '{week}';
-                }}
-                if (weekSelect) {{
-                    weekSelect.value = '{week}';
-                }}
+                if (weekInput) {
+                    weekInput.value = String(weekNum);
+                }
+                if (weekSelect) {
+                    weekSelect.value = String(weekNum);
+                }
                 const form = document.getElementById('week-form');
-                if (form) {{
+                if (form) {
                     form.submit();
-                }}
-            }}
-        """)
+                }
+            }
+        """, week)
 
     # Attendre que le tableau soit rendu
     try:
         page.wait_for_selector('table', timeout=5000)
-    except:
+    except TimeoutError:
         # Certaines divisions (coupes) n'ont pas de tableau de classement
         pass
     page.wait_for_timeout(500)
@@ -221,6 +221,7 @@ def scrape_all_interclubs_rankings(
     division_indices: Optional[List[int]] = None,
     delay: float = PAGE_DELAY,
     resume_from: Optional[Dict] = None,
+    is_cancelled: Optional[Callable] = None,
 ) -> Dict:
     """
     Scrape tous les classements interclubs.
@@ -298,6 +299,11 @@ def scrape_all_interclubs_rankings(
             # 3. Pour chaque division
             for div_idx, division in enumerate(divisions):
                 for week in weeks:
+                    # Vérifier annulation
+                    if is_cancelled and is_cancelled():
+                        log("[INTERCLUBS] Scraping annulé par l'utilisateur")
+                        return stats
+
                     # Skip si resume
                     if skipping:
                         if division.division_index == skip_until[0] and week == skip_until[1]:
@@ -351,7 +357,8 @@ def scrape_all_interclubs_rankings(
                                     page.goto(RANKINGS_URL, timeout=30000)
                                     page.wait_for_load_state('networkidle')
                                     page.wait_for_timeout(1000)
-                                except:
+                                except Exception:
+                                    logger.warning("Echec du rechargement de la page après erreur")
                                     pass
                             else:
                                 stats['errors'].append(error_msg)
@@ -375,6 +382,7 @@ async def scrape_all_interclubs_rankings_async(
     division_indices: Optional[List[int]] = None,
     delay: float = PAGE_DELAY,
     resume_from: Optional[Dict] = None,
+    is_cancelled: Optional[Callable] = None,
 ) -> Dict:
     """Wrapper async pour utilisation dans FastAPI."""
     return await asyncio.to_thread(
@@ -384,6 +392,7 @@ async def scrape_all_interclubs_rankings_async(
         division_indices=division_indices,
         delay=delay,
         resume_from=resume_from,
+        is_cancelled=is_cancelled,
     )
 
 
