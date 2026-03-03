@@ -105,6 +105,35 @@ MIGRATIONS = [
         ALTER TABLE player_stats_new RENAME TO player_stats;
         CREATE INDEX IF NOT EXISTS idx_player_stats_licence_fiche ON player_stats(player_licence, fiche_type);
     """),
+    (4, """
+        CREATE TABLE IF NOT EXISTS interclubs_matches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            division_name TEXT NOT NULL,
+            division_category TEXT,
+            week_name TEXT NOT NULL,
+            week_date_from TEXT,
+            week_date_to TEXT,
+            match_id TEXT NOT NULL,
+            date TEXT,
+            time TEXT,
+            home_team TEXT NOT NULL,
+            away_team TEXT NOT NULL,
+            score TEXT,
+            home_score INTEGER,
+            away_score INTEGER,
+            is_home_forfeit BOOLEAN DEFAULT 0,
+            is_away_forfeit BOOLEAN DEFAULT 0,
+            match_details_url TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(match_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_interclubs_matches_division ON interclubs_matches(division_name);
+        CREATE INDEX IF NOT EXISTS idx_interclubs_matches_week ON interclubs_matches(week_name);
+        CREATE INDEX IF NOT EXISTS idx_interclubs_matches_home ON interclubs_matches(home_team);
+        CREATE INDEX IF NOT EXISTS idx_interclubs_matches_away ON interclubs_matches(away_team);
+        CREATE INDEX IF NOT EXISTS idx_interclubs_matches_date ON interclubs_matches(date);
+    """),
 ]
 
 

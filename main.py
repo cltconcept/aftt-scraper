@@ -40,6 +40,7 @@ from scraper.members_scraper import main as scrape_members, get_club_members, sa
 from scraper.player_scraper import main as scrape_player, get_player_info
 from scraper.tournament_scraper import main as scrape_tournament, get_all_tournaments, get_tournament_details
 from scraper.interclubs_scraper import scrape_all_interclubs_rankings
+from scraper.calendrier_scraper import scrape_all_calendrier
 
 
 def scrape_all_members():
@@ -127,6 +128,8 @@ SCRAPING (récupération des données):
   python main.py tournament 6310    Détails d'un tournoi spécifique
   python main.py interclubs         Classements interclubs (toutes divisions, semaines 1-22)
   python main.py interclubs --weeks 1,2 --divisions 5,10   Filtrage optionnel
+  python main.py calendrier         Calendrier interclubs (toutes divisions)
+  python main.py calendrier --divisions "Division 1"       Filtrage par nom
 
 DATABASE (stockage):
   python main.py import             Importe les JSON dans SQLite
@@ -248,6 +251,34 @@ def run():
         print(f"\n[OK] Scraping interclubs termine !")
         print(f"  Divisions: {stats['total_divisions']}")
         print(f"  Classements: {stats['total_rankings']}")
+        print(f"  Erreurs: {len(stats['errors'])}")
+
+    elif args[0] == "calendrier":
+        print("\n[ETAPE] Recuperation du calendrier interclubs...")
+
+        # Initialiser la base de donnees pour les nouvelles tables
+        from database.connection import init_database
+        init_database()
+
+        # Parser les arguments optionnels
+        division_names = None
+
+        for i, arg in enumerate(args):
+            if arg == '--divisions' and i + 1 < len(args):
+                division_names = [d.strip() for d in args[i + 1].split(',')]
+
+        def print_callback(msg):
+            print(msg)
+
+        stats = scrape_all_calendrier(
+            callback=print_callback,
+            division_names=division_names,
+        )
+
+        print(f"\n[OK] Scraping calendrier termine !")
+        print(f"  Divisions: {stats['total_divisions']}")
+        print(f"  Divisions scrapees: {stats['divisions_scraped']}")
+        print(f"  Matchs: {stats['total_matches']}")
         print(f"  Erreurs: {len(stats['errors'])}")
 
     elif args[0] == "import":

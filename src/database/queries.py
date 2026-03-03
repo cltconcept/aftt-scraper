@@ -4,7 +4,7 @@ Requêtes et opérations sur la base de données AFTT
 import sqlite3
 from typing import List, Optional, Dict, Any
 from .connection import get_db
-from .models import Club, Player, Match, PlayerStats, InterclubsDivision, InterclubsRanking
+from .models import Club, Player, Match, PlayerStats, InterclubsDivision, InterclubsRanking, InterclubsMatch
 
 
 # =============================================================================
@@ -1152,4 +1152,192 @@ def get_interclubs_stats() -> Dict:
         'teams_count': row[2],
         'min_week': row[3],
         'max_week': row[4],
+    }
+
+
+# =============================================================================
+# INTERCLUBS CALENDRIER (MATCHS)
+# =============================================================================
+
+def insert_interclubs_match(match: Dict[str, Any]) -> None:
+    """Insere ou met a jour un match interclubs (upsert par match_id)."""
+    sql = """
+    INSERT INTO interclubs_matches (
+        division_name, division_category, week_name, week_date_from, week_date_to,
+        match_id, date, time, home_team, away_team, score,
+        home_score, away_score, is_home_forfeit, is_away_forfeit, match_details_url
+    ) VALUES (
+        :division_name, :division_category, :week_name, :week_date_from, :week_date_to,
+        :match_id, :date, :time, :home_team, :away_team, :score,
+        :home_score, :away_score, :is_home_forfeit, :is_away_forfeit, :match_details_url
+    )
+    ON CONFLICT(match_id) DO UPDATE SET
+        division_name = COALESCE(excluded.division_name, interclubs_matches.division_name),
+        division_category = COALESCE(excluded.division_category, interclubs_matches.division_category),
+        week_name = COALESCE(excluded.week_name, interclubs_matches.week_name),
+        week_date_from = COALESCE(excluded.week_date_from, interclubs_matches.week_date_from),
+        week_date_to = COALESCE(excluded.week_date_to, interclubs_matches.week_date_to),
+        date = COALESCE(excluded.date, interclubs_matches.date),
+        time = COALESCE(excluded.time, interclubs_matches.time),
+        home_team = COALESCE(excluded.home_team, interclubs_matches.home_team),
+        away_team = COALESCE(excluded.away_team, interclubs_matches.away_team),
+        score = COALESCE(excluded.score, interclubs_matches.score),
+        home_score = COALESCE(excluded.home_score, interclubs_matches.home_score),
+        away_score = COALESCE(excluded.away_score, interclubs_matches.away_score),
+        is_home_forfeit = excluded.is_home_forfeit,
+        is_away_forfeit = excluded.is_away_forfeit,
+        match_details_url = COALESCE(excluded.match_details_url, interclubs_matches.match_details_url),
+        updated_at = CURRENT_TIMESTAMP
+    """
+    with get_db() as db:
+        db.execute(sql, match)
+
+
+def insert_interclubs_matches_batch(matches: List[Dict[str, Any]]) -> None:
+    """Insere un lot de matchs interclubs (upsert par match_id)."""
+    if not matches:
+        return
+    sql = """
+    INSERT INTO interclubs_matches (
+        division_name, division_category, week_name, week_date_from, week_date_to,
+        match_id, date, time, home_team, away_team, score,
+        home_score, away_score, is_home_forfeit, is_away_forfeit, match_details_url
+    ) VALUES (
+        :division_name, :division_category, :week_name, :week_date_from, :week_date_to,
+        :match_id, :date, :time, :home_team, :away_team, :score,
+        :home_score, :away_score, :is_home_forfeit, :is_away_forfeit, :match_details_url
+    )
+    ON CONFLICT(match_id) DO UPDATE SET
+        division_name = COALESCE(excluded.division_name, interclubs_matches.division_name),
+        division_category = COALESCE(excluded.division_category, interclubs_matches.division_category),
+        week_name = COALESCE(excluded.week_name, interclubs_matches.week_name),
+        week_date_from = COALESCE(excluded.week_date_from, interclubs_matches.week_date_from),
+        week_date_to = COALESCE(excluded.week_date_to, interclubs_matches.week_date_to),
+        date = COALESCE(excluded.date, interclubs_matches.date),
+        time = COALESCE(excluded.time, interclubs_matches.time),
+        home_team = COALESCE(excluded.home_team, interclubs_matches.home_team),
+        away_team = COALESCE(excluded.away_team, interclubs_matches.away_team),
+        score = COALESCE(excluded.score, interclubs_matches.score),
+        home_score = COALESCE(excluded.home_score, interclubs_matches.home_score),
+        away_score = COALESCE(excluded.away_score, interclubs_matches.away_score),
+        is_home_forfeit = excluded.is_home_forfeit,
+        is_away_forfeit = excluded.is_away_forfeit,
+        match_details_url = COALESCE(excluded.match_details_url, interclubs_matches.match_details_url),
+        updated_at = CURRENT_TIMESTAMP
+    """
+    with get_db() as db:
+        db.executemany(sql, matches)
+
+
+def get_interclubs_matches(
+    division_name: str = None,
+    week: str = None,
+    club: str = None,
+    team: str = None,
+    date_from: str = None,
+    date_to: str = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> List[Dict]:
+    """Recherche des matchs interclubs avec filtres multiples."""
+    sql = "SELECT * FROM interclubs_matches WHERE 1=1"
+    params = []
+    if division_name:
+        sql += " AND division_name LIKE ?"
+        params.append(f"%{division_name}%")
+    if week:
+        sql += " AND week_name = ?"
+        params.append(week)
+    if club:
+        sql += " AND (home_team LIKE ? OR away_team LIKE ?)"
+        params.extend([f"%{club}%", f"%{club}%"])
+    if team:
+        sql += " AND (home_team = ? OR away_team = ?)"
+        params.extend([team, team])
+    if date_from:
+        sql += " AND date >= ?"
+        params.append(date_from)
+    if date_to:
+        sql += " AND date <= ?"
+        params.append(date_to)
+    sql += " ORDER BY date, time LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_interclubs_team_matches(team_name: str) -> List[Dict]:
+    """Recupere tous les matchs d'une equipe (domicile ou exterieur)."""
+    sql = """
+        SELECT * FROM interclubs_matches
+        WHERE home_team = ? OR away_team = ?
+        ORDER BY date, time
+    """
+    with get_db() as db:
+        cursor = db.execute(sql, (team_name, team_name))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_interclubs_week_calendar(week_name: str, division_name: str = None) -> List[Dict]:
+    """Recupere tous les matchs d'une journee (semaine), filtrable par division."""
+    sql = "SELECT * FROM interclubs_matches WHERE week_name = ?"
+    params = [week_name]
+    if division_name:
+        sql += " AND division_name LIKE ?"
+        params.append(f"%{division_name}%")
+    sql += " ORDER BY division_name, date, time"
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def search_interclubs_calendar(query: str, limit: int = 50) -> List[Dict]:
+    """Recherche texte dans le calendrier interclubs (noms d'equipes)."""
+    sql = """
+        SELECT * FROM interclubs_matches
+        WHERE home_team LIKE ? OR away_team LIKE ?
+        ORDER BY date, time
+        LIMIT ?
+    """
+    with get_db() as db:
+        cursor = db.execute(sql, (f"%{query}%", f"%{query}%", limit))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def delete_interclubs_matches(division_name: str = None, week_name: str = None) -> int:
+    """Supprime des matchs interclubs (filtrage optionnel)."""
+    sql = "DELETE FROM interclubs_matches WHERE 1=1"
+    params = []
+    if division_name:
+        sql += " AND division_name = ?"
+        params.append(division_name)
+    if week_name:
+        sql += " AND week_name = ?"
+        params.append(week_name)
+    with get_db() as db:
+        cursor = db.execute(sql, params)
+        return cursor.rowcount
+
+
+def get_interclubs_calendar_stats() -> Dict:
+    """Stats calendrier interclubs : total matchs, divisions, semaines."""
+    with get_db() as db:
+        cursor = db.execute("""
+            SELECT
+                (SELECT COUNT(*) FROM interclubs_matches) as total_matches,
+                (SELECT COUNT(DISTINCT division_name) FROM interclubs_matches) as divisions_count,
+                (SELECT COUNT(DISTINCT week_name) FROM interclubs_matches) as weeks_count,
+                (SELECT COUNT(DISTINCT home_team) + COUNT(DISTINCT away_team) FROM interclubs_matches) as teams_count,
+                (SELECT MIN(date) FROM interclubs_matches WHERE date IS NOT NULL) as min_date,
+                (SELECT MAX(date) FROM interclubs_matches WHERE date IS NOT NULL) as max_date
+        """)
+        row = cursor.fetchone()
+    return {
+        'total_matches': row[0],
+        'divisions_count': row[1],
+        'weeks_count': row[2],
+        'teams_count': row[3],
+        'min_date': row[4],
+        'max_date': row[5],
     }

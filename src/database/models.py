@@ -202,6 +202,48 @@ class InterclubsRanking:
         }
 
 
+@dataclass
+class InterclubsMatch:
+    """Représente un match du calendrier interclubs."""
+    id: Optional[int] = None
+    division_name: str = ""
+    division_category: Optional[str] = None
+    week_name: str = ""
+    week_date_from: Optional[str] = None
+    week_date_to: Optional[str] = None
+    match_id: str = ""
+    date: Optional[str] = None
+    time: Optional[str] = None
+    home_team: str = ""
+    away_team: str = ""
+    score: Optional[str] = None
+    home_score: Optional[int] = None
+    away_score: Optional[int] = None
+    is_home_forfeit: bool = False
+    is_away_forfeit: bool = False
+    match_details_url: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            'division_name': self.division_name,
+            'division_category': self.division_category,
+            'week_name': self.week_name,
+            'week_date_from': self.week_date_from,
+            'week_date_to': self.week_date_to,
+            'match_id': self.match_id,
+            'date': self.date,
+            'time': self.time,
+            'home_team': self.home_team,
+            'away_team': self.away_team,
+            'score': self.score,
+            'home_score': self.home_score,
+            'away_score': self.away_score,
+            'is_home_forfeit': self.is_home_forfeit,
+            'is_away_forfeit': self.is_away_forfeit,
+            'match_details_url': self.match_details_url,
+        }
+
+
 # SQL pour créer les tables
 CREATE_TABLES_SQL = """
 -- Table des clubs
@@ -381,6 +423,30 @@ CREATE TABLE IF NOT EXISTS interclubs_rankings (
     UNIQUE(division_index, week, team_name)
 );
 
+-- Table des matchs du calendrier interclubs
+CREATE TABLE IF NOT EXISTS interclubs_matches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    division_name TEXT NOT NULL,
+    division_category TEXT,
+    week_name TEXT NOT NULL,
+    week_date_from TEXT,
+    week_date_to TEXT,
+    match_id TEXT NOT NULL,
+    date TEXT,
+    time TEXT,
+    home_team TEXT NOT NULL,
+    away_team TEXT NOT NULL,
+    score TEXT,
+    home_score INTEGER,
+    away_score INTEGER,
+    is_home_forfeit BOOLEAN DEFAULT 0,
+    is_away_forfeit BOOLEAN DEFAULT 0,
+    match_details_url TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(match_id)
+);
+
 -- Index pour les recherches fréquentes
 CREATE INDEX IF NOT EXISTS idx_players_club ON players(club_code);
 CREATE INDEX IF NOT EXISTS idx_players_ranking ON players(ranking);
@@ -402,4 +468,9 @@ CREATE INDEX IF NOT EXISTS idx_interclubs_rankings_division ON interclubs_rankin
 CREATE INDEX IF NOT EXISTS idx_interclubs_rankings_week ON interclubs_rankings(week);
 CREATE INDEX IF NOT EXISTS idx_interclubs_rankings_team ON interclubs_rankings(team_name);
 CREATE INDEX IF NOT EXISTS idx_interclubs_rankings_div_week ON interclubs_rankings(division_index, week);
+CREATE INDEX IF NOT EXISTS idx_interclubs_matches_division ON interclubs_matches(division_name);
+CREATE INDEX IF NOT EXISTS idx_interclubs_matches_week ON interclubs_matches(week_name);
+CREATE INDEX IF NOT EXISTS idx_interclubs_matches_home ON interclubs_matches(home_team);
+CREATE INDEX IF NOT EXISTS idx_interclubs_matches_away ON interclubs_matches(away_team);
+CREATE INDEX IF NOT EXISTS idx_interclubs_matches_date ON interclubs_matches(date);
 """
